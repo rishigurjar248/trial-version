@@ -382,7 +382,24 @@ export default function AdminPage() {
   if (!authenticated) return <Login onLogin={() => setAuthenticated(true)} />;
 
   return (
-    <div className="admin-page">
+    <div className="admin-shell">
+      <aside className="admin-sidebar">
+        <div className="admin-brand"><span className="admin-brand-mark">D</span><span>DealKart <small>Admin</small></span></div>
+        <nav aria-label="Admin navigation">
+          <a href="#admin-overview" className="active"><span>⌂</span> Dashboard</a>
+          <a href="#admin-products" className="active"><span>▦</span> Products</a>
+          <a href="#admin-products" onClick={() => setQuery("")}><span>☆</span> Top Deals</a>
+          <a href="#admin-products"><span>▤</span> Orders</a>
+          <a href="#admin-products"><span>◇</span> Coupons</a>
+          <a href="#admin-products"><span>♙</span> Customers</a>
+          <a href="#admin-products"><span>▥</span> Analytics</a>
+          <a href="#admin-products"><span>⚙</span> Settings</a>
+          <a href="#top" onClick={logout}><span>⇥</span> Logout</a>
+        </nav>
+        <div className="admin-sidebar-foot">CATALOG CONTROL<br/><b>Global catalog</b><span>● Connected session</span></div>
+      </aside>
+      <main className="admin-page" id="admin-overview">
+      <div className="admin-topline"><span>PRODUCT MANAGEMENT / CATALOG</span><div><span className="admin-status-dot"/> Admin workspace <button onClick={logout}>Log out</button></div></div>
       <div className="admin-head">
         <div>
           <button className="admin-back" onClick={() => { window.location.hash = "top"; }}><ArrowLeft size={16}/> Website</button>
@@ -397,7 +414,7 @@ export default function AdminPage() {
         </div>
       </div>
 
-      <div className="admin-toolbar">
+      <div className="admin-toolbar" id="admin-products">
         <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Search products, brand or category…" />
         <span>{loadingCatalog ? "Loading…" : `${items.length} items · ${items.filter(p => p.isTop10).length}/10 top deals`}</span>
         <button className="admin-btn primary" onClick={add}><Plus size={16}/> Add product</button>
@@ -449,7 +466,8 @@ export default function AdminPage() {
         ))}
       </div>
       {!visible.length && <div className="admin-empty">No products match your search.</div>}
-      <div className="admin-note"><b>Recommended:</b> use WebP images around 300–800 KB. You can paste any public image URL, or upload directly to the <code>product-images</code> Supabase Storage bucket. Changes are global after <b>Save catalog</b>.</div>
+      <div className="admin-note"><b>Storage tip:</b> use WebP images around 300–800 KB. Changes become global after <b>Save catalog</b>.</div>
+      </main>
     </div>
   );
 }
