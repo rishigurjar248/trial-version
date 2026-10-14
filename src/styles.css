@@ -6300,3 +6300,29 @@ svg {
 @media(max-width:600px){.cart-deals{display:none}.cart-item{grid-template-columns:68px 1fr;min-height:82px;padding:8px 10px}.cart-item img{width:63px;height:63px}.ci b{-webkit-line-clamp:2}.ci small{display:none}.cart-foot .cart-calculation>div:not(.cart-final-line){display:none}.cart-foot .cart-saved{margin:4px 0 8px}.cart-foot{padding-top:8px}.cart-rewards{margin-top:7px}.cart-coupon{margin-bottom:7px}}
 
 .cart-gift-item{background:#f1fff8!important;border-bottom-color:#c8f0de!important}.cart-gift-item .cart-item-badge{background:#0e9f6e;color:#fff;border-color:#0e9f6e}.cart-gift-item .ci b{color:#087953;font-weight:850}.cart-gift-item .ci strong{color:#07935f;font-weight:950}.cart-gift-item img{padding:8px;box-sizing:border-box;background:#fff;border:1px solid #d5f2e5}
+
+/* Keep the cart drawer close to the compact reference layout. */
+.cart { background:#f4f6f8; color:#202124; }
+.cart-headline { background:#f1f3f6; border-bottom:0; }
+.cart-headline b,.cart-headline button { color:#24262a; }
+.cart-headline small { color:#333; font-size:17px; font-weight:800; margin-left:4px; }
+.cart-scroll { padding:0 0 10px; }
+.cart-items { padding:0; margin:0 0 10px; border:0; border-radius:0; overflow:visible; }
+.cart-coupon { margin:0 2px 11px; padding:11px 14px 10px; }
+.coupon-input-wrap { height:44px; }
+.coupon-input-wrap input { background:#f7f4ef; }
+.coupon-offer-list { display:flex; gap:7px; margin-top:7px; }
+.coupon-offer-list button { flex:1; min-height:39px; border:1px dashed #cfd5db; background:#f8fafb; color:#222; border-radius:7px; padding:7px 5px; font-size:10px; font-weight:900; }
+.coupon-offer-list b { color:#13943d; margin-left:3px; }
+.offers-link { width:100%; margin-top:5px; padding:2px 0 1px; border-top:0; background:transparent; color:#075ea8; font-size:15px; justify-content:center; gap:6px; }
+.offers-link b { font-size:15px; }
+.cart-deals { display:block; border-radius:0; overflow:hidden; }
+.cart-foot { padding:0 12px 11px; background:#fff; }
+.cart-foot > button { background:#20d25f; color:#071108; min-height:53px; border-radius:12px; box-shadow:none; }
+@media(max-width:600px) {
+  .cart { width:100vw; max-width:none; }
+  .cart-scroll { padding:0 0 8px; }
+  .cart-deals { display:block; }
+  .cart-foot .cart-calculation>div:not(.cart-final-line) { display:flex; }
+  .cart-foot { padding-top:8px; }
+}

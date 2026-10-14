@@ -8,7 +8,6 @@ import {
   Eye,
   Heart,
   History,
-  Gift,
   Mail,
   MapPin,
   MessageCircle,
@@ -45,8 +44,6 @@ import "./styles.css";
 const WHATSAPP_NUMBER = "919244335428";
 const SUPPORT_PHONE = "9244335428";
 const SUPPORT_EMAIL = "mysterioofficial26@gmail.com";
-const SURPRISE_GIFT_ID = "__dealkart_surprise_gift__";
-const makeSurpriseGift = () => ({ id: SURPRISE_GIFT_ID, page: 0, name: "DealKart Surprise Gift", brand: "DealKart", category: "Free Gift", price: 0, oldPrice: 0, mrp: 0, image: dealkartSymbol, description: "A special surprise gift unlocked with your cart reward.", keyPoints: ["Free surprise gift", "Unlocked at ₹799 cart subtotal"] });
 const categories = [
   "All Deals",
   "Skincare",
@@ -170,7 +167,7 @@ const discount = (p) =>
   Math.max(0, Math.round((1 - salePrice(p) / mrp(p)) * 100));
 function waUrl(items, customer = {}, promo = {}) {
   const lines = items
-    .map(({ p, qty }) => p.id === SURPRISE_GIFT_ID ? `🎁 ${p.name} | FREE × ${qty}` : `${p.name} | ${p.brand} | ${money(p.price)} × ${qty}`)
+    .map(({ p, qty }) => `${p.name} | ${p.brand} | ${money(p.price)} × ${qty}`)
     .join("\n");
   const subtotal = items.reduce((s, x) => s + x.p.price * x.qty, 0);
   const discountAmount = promo.discount || 0;
@@ -924,11 +921,6 @@ function Cart({ open, onClose, items, onChange, onRemove, onCheckout }) {
     ? Math.min(discountedSubtotal, tieredCoupon ? eligibleTierDiscount : (discountedSubtotal >= Number(couponConfig.minSubtotal || 0) ? Number(couponConfig.flatDiscount ?? couponConfig.discount) || 0 : 0))
     : 0;
   const total = Math.max(0, discountedSubtotal - couponDiscount);
-  const freeDeliveryTarget = 499;
-  const giftTarget = 799;
-  const nextRewardTarget = discountedSubtotal < freeDeliveryTarget ? freeDeliveryTarget : discountedSubtotal < giftTarget ? giftTarget : null;
-  const rewardProgress = Math.min(100, Math.round((discountedSubtotal / (nextRewardTarget || giftTarget)) * 100));
-  const amountToReward = nextRewardTarget ? Math.max(0, nextRewardTarget - discountedSubtotal) : 0;
 
   // Keep upsells relevant to what is already in the cart: use the most
   // represented category, then surface the best-discounted products in it.
@@ -1006,18 +998,6 @@ function Cart({ open, onClose, items, onChange, onRemove, onCheckout }) {
         ) : (
           <>
             <div className="cart-scroll">
-              <section className="cart-rewards" aria-label="Cart rewards progress">
-                <div className="cart-rewards-head">
-                  <span><Gift size={16} /> Unlock cart rewards</span>
-                  <b>{discountedSubtotal >= giftTarget ? "Rewards unlocked!" : `${money(discountedSubtotal)} / ${money(nextRewardTarget || giftTarget)}`}</b>
-                </div>
-                <div className="cart-reward-track"><span style={{ width: `${Math.min(100, Math.round(discountedSubtotal / giftTarget * 100))}%` }} /></div>
-                <div className="cart-reward-milestones">
-                  <span className={discountedSubtotal >= freeDeliveryTarget ? "unlocked" : ""}><Truck size={14} /> ₹499 Free delivery</span>
-                  <span className={discountedSubtotal >= giftTarget ? "unlocked" : ""}><Gift size={14} /> ₹799 Surprise gift</span>
-                </div>
-                {discountedSubtotal >= giftTarget ? <p className="reward-unlocked"><Gift size={14} /> Special surprise gift unlocked for you!</p> : <p className="reward-next">{amountToReward === 0 ? "Free delivery unlocked!" : `Add ${money(amountToReward)} more to unlock ${discountedSubtotal < freeDeliveryTarget ? "free delivery" : "your surprise gift"}.`}</p>}
-              </section>
               <div className="cart-items">
                 {items.map((x) => {
                   const itemMrp = mrp(x.p);
@@ -1025,21 +1005,18 @@ function Cart({ open, onClose, items, onChange, onRemove, onCheckout }) {
                     itemMrp > x.p.price
                       ? Math.max(0, Math.round((1 - x.p.price / itemMrp) * 100))
                       : 0;
-                  const isGiftItem = x.p.id === SURPRISE_GIFT_ID;
                   return (
-                    <div className={"cart-item cart-item-enter " + (isGiftItem ? "cart-gift-item" : "")} key={x.p.id}>
-                      <div className="cart-item-badge">{isGiftItem ? "FREE GIFT" : `${off}% off`}</div>
+                    <div className="cart-item cart-item-enter" key={x.p.id}>
+                      <div className="cart-item-badge">{off}% off</div>
                       <img src={x.p.image} alt="" />
                       <div className="ci">
-                        <b>{isGiftItem ? "🎁 Surprise gift unlocked!" : x.p.name}</b>
-                        <small>
-                          {isGiftItem ? "Special reward · Added automatically" : `${x.p.brand} · ${x.p.category}`}
-                        </small>
+                        <b>{x.p.name}</b>
+                        <small>{x.p.brand} · {x.p.category}</small>
                         <div className="ci-price">
-                          {!isGiftItem && <del>{money(mrp(x.p))}</del>}
-                          <strong>{isGiftItem ? "FREE" : money(x.p.price)}</strong>
+                          <del>{money(mrp(x.p))}</del>
+                          <strong>{money(x.p.price)}</strong>
                         </div>
-                        {!isGiftItem && <div className="qty">
+                        <div className="qty">
                           <button
                             onClick={() => onChange(x.p, -1)}
                             aria-label="Decrease quantity"
@@ -1053,15 +1030,15 @@ function Cart({ open, onClose, items, onChange, onRemove, onCheckout }) {
                           >
                             <Plus />
                           </button>
-                        </div>}
-                        {!isGiftItem && <button
+                        </div>
+                        <button
                           className="cart-delete"
                           onClick={() => onRemove(x.p)}
                           aria-label={`Delete ${x.p.name} from cart`}
                           title="Delete item"
                         >
                           <Trash2 size={14} />
-                        </button>}
+                        </button>
                       </div>
                     </div>
                   );
@@ -1089,8 +1066,15 @@ function Cart({ open, onClose, items, onChange, onRemove, onCheckout }) {
                     {couponMessage}
                   </small>
                 )}
+                <div className="coupon-offer-list">
+                  {availableCoupons.slice(0, 2).map((offer) => (
+                    <button key={offer.code} onClick={() => { setCoupon(offer.code); applyCoupon(offer.code); }}>
+                      {offer.code} <b>₹{Number(offer.maxDiscount ?? offer.discount) || 0} OFF</b>
+                    </button>
+                  ))}
+                </div>
                 <button className="offers-link" onClick={() => setOffersOpen(true)}>
-                  <span><b>View All Offers</b><small>{availableCoupons.length} available coupons and their terms</small></span><ArrowRight size={17} />
+                  <b>View All Offers</b><ArrowRight size={17} />
                 </button>
               </section>
 
@@ -1644,12 +1628,6 @@ function App() {
       );
     });
   const remove = (p) => setCart((c) => c.filter((x) => x.p.id !== p.id));
-  useEffect(() => {
-    const merchandiseSubtotal = cart.filter(x => x.p.id !== SURPRISE_GIFT_ID).reduce((sum, x) => sum + x.p.price * x.qty, 0);
-    const hasGift = cart.some(x => x.p.id === SURPRISE_GIFT_ID);
-    if (merchandiseSubtotal >= 799 && !hasGift) setCart(current => [...current, { p: makeSurpriseGift(), qty: 1 }]);
-    else if (merchandiseSubtotal < 799 && hasGift) setCart(current => current.filter(x => x.p.id !== SURPRISE_GIFT_ID));
-  }, [cart]);
   const toggleWish = (p) => {
     setWish((w) => {
       const exists = w.some((x) => x.id === p.id);
