@@ -230,7 +230,8 @@ export default function AdminPage() {
   const [query, setQuery] = useState("");
   const [activeTab, setActiveTab] = useState("products");
   const [coupons, setCoupons] = useState([]);
-  const [couponDraft, setCouponDraft] = useState({ code: "", discount: 19, minSubtotal: 0, isActive: true, isPublic: true });
+  const emptyCoupon = () => ({ code: "", discount: 19, minSubtotal: 0, tier1Min: 499, tier1Discount: 19, tier2Min: 999, tier2Discount: 49, tier3Min: 1999, tier3Discount: 99, isActive: true, isPublic: true });
+  const [couponDraft, setCouponDraft] = useState(emptyCoupon);
   const [couponBusy, setCouponBusy] = useState(false);
   const [couponMessage, setCouponMessage] = useState("");
   const [newProduct, setNewProduct] = useState(null);
@@ -257,7 +258,7 @@ export default function AdminPage() {
 
   const visible = useMemo(() => {
     const q = query.toLowerCase().trim();
-    const list = activeTab === "top-deals" ? items.filter(p => p.isTop10) : items;
+    const list = activeTab === "top-deals" ? items.filter(p => p.isTop10).sort((a,b) => (Number(a.top10Rank)||999) - (Number(b.top10Rank)||999)) : items;
     return q ? list.filter(p => `${p.name} ${p.brand} ${p.category}`.toLowerCase().includes(q)) : list;
   }, [items, query, activeTab]);
 
@@ -267,7 +268,7 @@ export default function AdminPage() {
   useEffect(() => { if (authenticated) loadCoupons(); }, [authenticated]);
   const saveCoupon = async (e) => {
     e.preventDefault(); setCouponBusy(true); setCouponMessage("");
-    try { const r = await fetch("/api/coupons", { method: "PUT", credentials: "include", headers: {"Content-Type":"application/json"}, body: JSON.stringify({ coupon: couponDraft }) }); const j = await r.json(); if (!r.ok) throw new Error(j.error || "Could not save coupon"); await loadCoupons(); setCouponDraft({ code:"", discount:19, minSubtotal:0, isActive:true, isPublic:true }); setCouponMessage("Coupon saved."); } catch (e) { setCouponMessage(e.message); } finally { setCouponBusy(false); }
+    try { const r = await fetch("/api/coupons", { method: "PUT", credentials: "include", headers: {"Content-Type":"application/json"}, body: JSON.stringify({ coupon: couponDraft }) }); const j = await r.json(); if (!r.ok) throw new Error(j.error || "Could not save coupon"); await loadCoupons(); setCouponDraft(emptyCoupon()); setCouponMessage("Coupon saved."); } catch (e) { setCouponMessage(e.message); } finally { setCouponBusy(false); }
   };
   const deleteCoupon = async (code) => { if (!confirm(`Remove coupon ${code}?`)) return; try { const r = await fetch("/api/coupons", {method:"DELETE", credentials:"include", headers:{"Content-Type":"application/json"}, body:JSON.stringify({code})}); const j=await r.json(); if(!r.ok) throw new Error(j.error || "Could not remove coupon"); await loadCoupons(); setCouponMessage("Coupon removed."); } catch(e) { setCouponMessage(e.message); }
   };
@@ -417,8 +418,8 @@ export default function AdminPage() {
         <div>
           <button className="admin-back" onClick={() => { window.location.hash = "top"; }}><ArrowLeft size={16}/> Website</button>
           <span className="kicker">DEALKART CATALOG</span>
-          <h1>Product Manager</h1>
-          <p>All product text lives in PostgreSQL. Up to 5 image URLs are stored separately in the product image table, with optional uploads to Supabase Storage.</p>
+          <h1>{activeTab === "top-deals" ? "Today’s Top 10 Deals" : "Product Manager"}</h1>
+          <p>{activeTab === "top-deals" ? "Only products selected as Today’s Top 10 appear here. Select products from Products and save the catalog to update the storefront." : "All product text lives in PostgreSQL. Up to 5 image URLs are stored separately in the product image table, with optional uploads to Supabase Storage."}</p>
         </div>
         <div className="admin-actions">
           <button className="admin-btn secondary" onClick={logout}><LogOut size={16}/> Log out</button>
@@ -431,14 +432,21 @@ export default function AdminPage() {
         <div className="admin-head"><div><span className="kicker">PROMOTIONS</span><h1>Coupon manager</h1><p>Create fixed-rupee discounts, hide private codes from the storefront, or deactivate offers.</p></div></div>
         <form className="admin-coupon-form" onSubmit={saveCoupon}>
           <label>Coupon code<input required value={couponDraft.code} onChange={e=>setCouponDraft(v=>({...v,code:e.target.value.toUpperCase().replace(/\s/g,"")}))} placeholder="e.g. AMAN" /></label>
-          <label>Discount (₹)<input type="number" min="1" required value={couponDraft.discount} onChange={e=>setCouponDraft(v=>({...v,discount:Number(e.target.value)}))}/></label>
-          <label>Minimum subtotal (₹)<input type="number" min="0" value={couponDraft.minSubtotal} onChange={e=>setCouponDraft(v=>({...v,minSubtotal:Number(e.target.value)}))}/></label>
+          <label>Legacy flat discount (₹)<input type="number" min="1" value={couponDraft.discount} onChange={e=>setCouponDraft(v=>({...v,discount:Number(e.target.value)}))}/></label>
+          <label>Legacy minimum subtotal (₹)<input type="number" min="0" value={couponDraft.minSubtotal} onChange={e=>setCouponDraft(v=>({...v,minSubtotal:Number(e.target.value)}))}/></label>
+          <div className="admin-wide admin-coupon-tier-heading"><b>Cart-value discount tiers</b><small>Highest eligible tier is applied; leave a discount at ₹0 to disable that tier.</small></div>
+          <label>Cart above (₹) — Tier 1<input type="number" min="0" value={couponDraft.tier1Min} onChange={e=>setCouponDraft(v=>({...v,tier1Min:Number(e.target.value)}))}/></label>
+          <label>Discount (₹) — Tier 1<input type="number" min="0" value={couponDraft.tier1Discount} onChange={e=>setCouponDraft(v=>({...v,tier1Discount:Number(e.target.value)}))}/></label>
+          <label>Cart above (₹) — Tier 2<input type="number" min="0" value={couponDraft.tier2Min} onChange={e=>setCouponDraft(v=>({...v,tier2Min:Number(e.target.value)}))}/></label>
+          <label>Discount (₹) — Tier 2<input type="number" min="0" value={couponDraft.tier2Discount} onChange={e=>setCouponDraft(v=>({...v,tier2Discount:Number(e.target.value)}))}/></label>
+          <label>Cart above (₹) — Tier 3<input type="number" min="0" value={couponDraft.tier3Min} onChange={e=>setCouponDraft(v=>({...v,tier3Min:Number(e.target.value)}))}/></label>
+          <label>Discount (₹) — Tier 3<input type="number" min="0" value={couponDraft.tier3Discount} onChange={e=>setCouponDraft(v=>({...v,tier3Discount:Number(e.target.value)}))}/></label>
           <label className="admin-coupon-check"><input type="checkbox" checked={couponDraft.isActive} onChange={e=>setCouponDraft(v=>({...v,isActive:e.target.checked}))}/> Active</label>
           <label className="admin-coupon-check"><input type="checkbox" checked={couponDraft.isPublic} onChange={e=>setCouponDraft(v=>({...v,isPublic:e.target.checked}))}/> Show in frontend offers</label>
           <button className="admin-btn primary" disabled={couponBusy}>{couponBusy ? "Saving…" : "Save coupon"}</button>
         </form>
         {couponMessage && <p className="admin-note">{couponMessage}</p>}
-        <div className="admin-coupon-list">{coupons.map(c=><article key={c.code} className="admin-coupon-row"><div><b>{c.code}</b><span>₹{c.discount} off · min. ₹{c.minSubtotal || 0} · {c.isActive ? "Active" : "Inactive"} · {c.isPublic ? "Visible" : "Hidden"}</span></div><div><button className="admin-btn secondary" onClick={()=>setCouponDraft({code:c.code,discount:c.discount,minSubtotal:c.minSubtotal||0,isActive:c.isActive,isPublic:c.isPublic})}>Edit</button><button className="admin-btn secondary" onClick={()=>deleteCoupon(c.code)}>Remove</button></div></article>)}</div>
+        <div className="admin-coupon-list">{coupons.map(c=><article key={c.code} className="admin-coupon-row"><div><b>{c.code}</b><span>₹{Math.max(Number(c.discount)||0,Number(c.tier1Discount)||0,Number(c.tier2Discount)||0,Number(c.tier3Discount)||0)} max discount · {c.tier1Discount || c.tier2Discount || c.tier3Discount ? `₹${c.tier1Min || 499}/₹${c.tier1Discount} · ₹${c.tier2Min || 999}/₹${c.tier2Discount} · ₹${c.tier3Min || 1999}/₹${c.tier3Discount}` : `min. ₹${c.minSubtotal || 0}`} · {c.isActive ? "Active" : "Inactive"} · {c.isPublic ? "Visible" : "Hidden"}</span></div><div><button className="admin-btn secondary" onClick={()=>setCouponDraft({code:c.code,discount:c.discount||0,minSubtotal:c.minSubtotal||0,tier1Min:c.tier1Min??499,tier1Discount:c.tier1Discount??0,tier2Min:c.tier2Min??999,tier2Discount:c.tier2Discount??0,tier3Min:c.tier3Min??1999,tier3Discount:c.tier3Discount??0,isActive:c.isActive,isPublic:c.isPublic})}>Edit</button><button className="admin-btn secondary" onClick={()=>deleteCoupon(c.code)}>Remove</button></div></article>)}</div>
       </section> : <>
       <div className="admin-toolbar" id="admin-products">
         <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Search products, brand or category…" />

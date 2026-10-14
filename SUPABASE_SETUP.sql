@@ -85,11 +85,23 @@ create table if not exists public.coupons (
   code text primary key,
   discount numeric not null check (discount > 0),
   min_subtotal numeric not null default 0 check (min_subtotal >= 0),
+  tier1_min numeric not null default 499 check (tier1_min >= 0),
+  tier1_discount numeric not null default 0 check (tier1_discount >= 0),
+  tier2_min numeric not null default 999 check (tier2_min >= 0),
+  tier2_discount numeric not null default 0 check (tier2_discount >= 0),
+  tier3_min numeric not null default 1999 check (tier3_min >= 0),
+  tier3_discount numeric not null default 0 check (tier3_discount >= 0),
   is_active boolean not null default true,
   is_public boolean not null default true,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+alter table public.coupons add column if not exists tier1_min numeric not null default 499 check (tier1_min >= 0);
+alter table public.coupons add column if not exists tier1_discount numeric not null default 0 check (tier1_discount >= 0);
+alter table public.coupons add column if not exists tier2_min numeric not null default 999 check (tier2_min >= 0);
+alter table public.coupons add column if not exists tier2_discount numeric not null default 0 check (tier2_discount >= 0);
+alter table public.coupons add column if not exists tier3_min numeric not null default 1999 check (tier3_min >= 0);
+alter table public.coupons add column if not exists tier3_discount numeric not null default 0 check (tier3_discount >= 0);
 alter table public.coupons enable row level security;
 drop policy if exists "Public can read visible active coupons" on public.coupons;
 create policy "Public can read visible active coupons" on public.coupons for select to anon, authenticated using (is_active = true and is_public = true);

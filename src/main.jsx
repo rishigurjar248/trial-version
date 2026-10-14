@@ -33,11 +33,11 @@ import { Component, useEffect, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
 import AdminPage from "./AdminPage";
 import dealkartSymbol from "./assets/dealkart-symbol.png";
-import heroGym from "./assets/hero-posters/fitness-home-gym.png";
-import heroFitness from "./assets/hero-posters/fitness-stronger.png";
-import heroFood from "./assets/hero-posters/food-clean-green.png";
-import heroStock from "./assets/hero-posters/stock-up-days.png";
-import heroWellness from "./assets/hero-posters/wellness-balance.png";
+import heroGym from "./assets/hero-posters/fitness-home-gym.webp";
+import heroFitness from "./assets/hero-posters/fitness-stronger.webp";
+import heroFood from "./assets/hero-posters/food-clean-green.webp";
+import heroStock from "./assets/hero-posters/stock-up-days.webp";
+import heroWellness from "./assets/hero-posters/wellness-balance.webp";
 import { fetchRemoteCatalog, getInitialCatalog } from "./catalogStore";
 import "./styles.css";
 
@@ -319,7 +319,7 @@ function Hero({ slide, setSlide, onExplore }) {
         className="hero-poster-stage"
         style={{ "--hero-bg": `url(${s.image})` }}
       >
-        <img key={slide} src={s.image} alt={s.alt} />
+        <img key={slide} src={s.image} alt={s.alt} fetchPriority={slide === 0 ? "high" : "auto"} loading={slide === 0 ? "eager" : "lazy"} decoding="async" />
       </div>
       <div className="hero-frame">
         <div className="hero-live">
@@ -909,8 +909,15 @@ function Cart({ open, onClose, items, onChange, onRemove, onCheckout }) {
   const discountedSubtotal = items.reduce((s, x) => s + x.p.price * x.qty, 0);
   const mrpTotal = items.reduce((s, x) => s + mrp(x.p) * x.qty, 0);
   const productDiscount = Math.max(0, mrpTotal - discountedSubtotal);
-  const couponDiscount = appliedCoupon && couponConfig && discountedSubtotal >= Number(couponConfig.minSubtotal || 0)
-    ? Math.min(discountedSubtotal, Number(couponConfig.discount) || 0)
+  const couponTierRules = couponConfig ? [
+    { min: Number(couponConfig.tier1Min ?? 499), discount: Number(couponConfig.tier1Discount || 0) },
+    { min: Number(couponConfig.tier2Min ?? 999), discount: Number(couponConfig.tier2Discount || 0) },
+    { min: Number(couponConfig.tier3Min ?? 1999), discount: Number(couponConfig.tier3Discount || 0) },
+  ].filter(t => t.discount > 0) : [];
+  const tieredCoupon = couponTierRules.length > 0;
+  const eligibleTierDiscount = couponTierRules.filter(t => discountedSubtotal >= t.min).reduce((best, t) => Math.max(best, t.discount), 0);
+  const couponDiscount = appliedCoupon && couponConfig
+    ? Math.min(discountedSubtotal, tieredCoupon ? eligibleTierDiscount : (discountedSubtotal >= Number(couponConfig.minSubtotal || 0) ? Number(couponConfig.flatDiscount ?? couponConfig.discount) || 0 : 0))
     : 0;
   const total = Math.max(0, discountedSubtotal - couponDiscount);
 
@@ -950,17 +957,17 @@ function Cart({ open, onClose, items, onChange, onRemove, onCheckout }) {
     if (!open) return;
     setCoupon(appliedCoupon || "");
     setCouponMessage(appliedCoupon && couponConfig
-      ? `${appliedCoupon} applied · ₹${Math.min(discountedSubtotal, Number(couponConfig.discount))} OFF`
+      ? (couponDiscount > 0 ? `${appliedCoupon} applied · ₹${couponDiscount} OFF` : `Add items to reach the next eligible coupon tier.`)
       : "");
   }, [open]);
 
   useEffect(() => {
     if (appliedCoupon) {
-      setCouponMessage(couponConfig && discountedSubtotal >= Number(couponConfig.minSubtotal || 0)
-        ? `${appliedCoupon} applied · ₹${Math.min(discountedSubtotal, Number(couponConfig.discount))} OFF`
-        : couponConfig ? `Minimum subtotal ₹${Number(couponConfig.minSubtotal).toLocaleString("en-IN")} required for ${appliedCoupon}.` : "");
+      setCouponMessage(couponConfig && couponDiscount > 0
+        ? `${appliedCoupon} applied · ₹${couponDiscount} OFF`
+        : couponConfig ? `Add items to reach the next eligible coupon tier.` : "");
     }
-  }, [discountedSubtotal, appliedCoupon]);
+  }, [discountedSubtotal, appliedCoupon, couponConfig, couponDiscount]);
 
   return (
     <>
@@ -1062,7 +1069,7 @@ function Cart({ open, onClose, items, onChange, onRemove, onCheckout }) {
                 )}
                 <div className="coupon-offer-list">
                   {availableCoupons.map(c => <button key={c.code} onClick={() => { setCoupon(c.code); applyCoupon(c.code); }}>
-                    {c.code} <b>₹{c.discount} OFF</b>
+                    {c.code} <b>₹{c.maxDiscount || c.discount} OFF</b>
                   </button>)}
                 </div>
                 <button
