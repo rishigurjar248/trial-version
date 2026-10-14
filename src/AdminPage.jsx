@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { getInitialCatalog, fetchRemoteCatalog, saveCatalog } from "./catalogStore";
 import { supabaseBrowser } from "./supabaseClient";
+import dealkartSymbol from "./assets/dealkart-symbol.png";
 
 const MAX_IMAGES = 5;
 const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
@@ -227,6 +228,11 @@ export default function AdminPage() {
   const [saved, setSaved] = useState(false);
   const [saving, setSaving] = useState(false);
   const [query, setQuery] = useState("");
+  const [activeTab, setActiveTab] = useState("products");
+  const [coupons, setCoupons] = useState([]);
+  const [couponDraft, setCouponDraft] = useState({ code: "", discount: 19, minSubtotal: 0, isActive: true, isPublic: true });
+  const [couponBusy, setCouponBusy] = useState(false);
+  const [couponMessage, setCouponMessage] = useState("");
   const [newProduct, setNewProduct] = useState(null);
   const [addingProduct, setAddingProduct] = useState(false);
   const [addError, setAddError] = useState("");
@@ -251,8 +257,20 @@ export default function AdminPage() {
 
   const visible = useMemo(() => {
     const q = query.toLowerCase().trim();
-    return q ? items.filter(p => `${p.name} ${p.brand} ${p.category}`.toLowerCase().includes(q)) : items;
-  }, [items, query]);
+    const list = activeTab === "top-deals" ? items.filter(p => p.isTop10) : items;
+    return q ? list.filter(p => `${p.name} ${p.brand} ${p.category}`.toLowerCase().includes(q)) : list;
+  }, [items, query, activeTab]);
+
+  const loadCoupons = async () => {
+    try { const r = await fetch("/api/coupons", { credentials: "include" }); const j = await r.json(); if (r.ok) setCoupons(j.coupons || []); } catch {}
+  };
+  useEffect(() => { if (authenticated) loadCoupons(); }, [authenticated]);
+  const saveCoupon = async (e) => {
+    e.preventDefault(); setCouponBusy(true); setCouponMessage("");
+    try { const r = await fetch("/api/coupons", { method: "PUT", credentials: "include", headers: {"Content-Type":"application/json"}, body: JSON.stringify({ coupon: couponDraft }) }); const j = await r.json(); if (!r.ok) throw new Error(j.error || "Could not save coupon"); await loadCoupons(); setCouponDraft({ code:"", discount:19, minSubtotal:0, isActive:true, isPublic:true }); setCouponMessage("Coupon saved."); } catch (e) { setCouponMessage(e.message); } finally { setCouponBusy(false); }
+  };
+  const deleteCoupon = async (code) => { if (!confirm(`Remove coupon ${code}?`)) return; try { const r = await fetch("/api/coupons", {method:"DELETE", credentials:"include", headers:{"Content-Type":"application/json"}, body:JSON.stringify({code})}); const j=await r.json(); if(!r.ok) throw new Error(j.error || "Could not remove coupon"); await loadCoupons(); setCouponMessage("Coupon removed."); } catch(e) { setCouponMessage(e.message); }
+  };
 
   const update = (id, key, value) =>
     setItems(rows => rows.map(p => p.id === id ? { ...p, [key]: value } : p));
@@ -384,17 +402,12 @@ export default function AdminPage() {
   return (
     <div className="admin-shell">
       <aside className="admin-sidebar">
-        <div className="admin-brand"><span className="admin-brand-mark">D</span><span>DealKart <small>Admin</small></span></div>
+        <div className="admin-brand"><img className="admin-brand-logo" src={dealkartSymbol} alt="DealKart logo"/><span>DealKart <small>Admin</small></span></div>
         <nav aria-label="Admin navigation">
-          <a href="#admin-overview" className="active"><span>⌂</span> Dashboard</a>
-          <a href="#admin-products" className="active"><span>▦</span> Products</a>
-          <a href="#admin-products" onClick={() => setQuery("")}><span>☆</span> Top Deals</a>
-          <a href="#admin-products"><span>▤</span> Orders</a>
-          <a href="#admin-products"><span>◇</span> Coupons</a>
-          <a href="#admin-products"><span>♙</span> Customers</a>
-          <a href="#admin-products"><span>▥</span> Analytics</a>
-          <a href="#admin-products"><span>⚙</span> Settings</a>
-          <a href="#top" onClick={logout}><span>⇥</span> Logout</a>
+          <button type="button" className={activeTab === "products" ? "active" : ""} onClick={() => setActiveTab("products")}><span>▦</span> Products</button>
+          <button type="button" className={activeTab === "top-deals" ? "active" : ""} onClick={() => setActiveTab("top-deals")}><span>☆</span> Top Deals</button>
+          <button type="button" className={activeTab === "coupons" ? "active" : ""} onClick={() => setActiveTab("coupons")}><span>◇</span> Coupons</button>
+          <button type="button" onClick={logout}><span>⇥</span> Logout</button>
         </nav>
         <div className="admin-sidebar-foot">CATALOG CONTROL<br/><b>Global catalog</b><span>● Connected session</span></div>
       </aside>
@@ -414,6 +427,19 @@ export default function AdminPage() {
         </div>
       </div>
 
+      {activeTab === "coupons" ? <section className="admin-coupon-panel">
+        <div className="admin-head"><div><span className="kicker">PROMOTIONS</span><h1>Coupon manager</h1><p>Create fixed-rupee discounts, hide private codes from the storefront, or deactivate offers.</p></div></div>
+        <form className="admin-coupon-form" onSubmit={saveCoupon}>
+          <label>Coupon code<input required value={couponDraft.code} onChange={e=>setCouponDraft(v=>({...v,code:e.target.value.toUpperCase().replace(/\s/g,"")}))} placeholder="e.g. AMAN" /></label>
+          <label>Discount (₹)<input type="number" min="1" required value={couponDraft.discount} onChange={e=>setCouponDraft(v=>({...v,discount:Number(e.target.value)}))}/></label>
+          <label>Minimum subtotal (₹)<input type="number" min="0" value={couponDraft.minSubtotal} onChange={e=>setCouponDraft(v=>({...v,minSubtotal:Number(e.target.value)}))}/></label>
+          <label className="admin-coupon-check"><input type="checkbox" checked={couponDraft.isActive} onChange={e=>setCouponDraft(v=>({...v,isActive:e.target.checked}))}/> Active</label>
+          <label className="admin-coupon-check"><input type="checkbox" checked={couponDraft.isPublic} onChange={e=>setCouponDraft(v=>({...v,isPublic:e.target.checked}))}/> Show in frontend offers</label>
+          <button className="admin-btn primary" disabled={couponBusy}>{couponBusy ? "Saving…" : "Save coupon"}</button>
+        </form>
+        {couponMessage && <p className="admin-note">{couponMessage}</p>}
+        <div className="admin-coupon-list">{coupons.map(c=><article key={c.code} className="admin-coupon-row"><div><b>{c.code}</b><span>₹{c.discount} off · min. ₹{c.minSubtotal || 0} · {c.isActive ? "Active" : "Inactive"} · {c.isPublic ? "Visible" : "Hidden"}</span></div><div><button className="admin-btn secondary" onClick={()=>setCouponDraft({code:c.code,discount:c.discount,minSubtotal:c.minSubtotal||0,isActive:c.isActive,isPublic:c.isPublic})}>Edit</button><button className="admin-btn secondary" onClick={()=>deleteCoupon(c.code)}>Remove</button></div></article>)}</div>
+      </section> : <>
       <div className="admin-toolbar" id="admin-products">
         <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Search products, brand or category…" />
         <span>{loadingCatalog ? "Loading…" : `${items.length} items · ${items.filter(p => p.isTop10).length}/10 top deals`}</span>
@@ -467,6 +493,7 @@ export default function AdminPage() {
       </div>
       {!visible.length && <div className="admin-empty">No products match your search.</div>}
       <div className="admin-note"><b>Storage tip:</b> use WebP images around 300–800 KB. Changes become global after <b>Save catalog</b>.</div>
+      </>}
       </main>
     </div>
   );

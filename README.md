@@ -109,3 +109,11 @@ The existing `products.image`, `gallery_images` and `images` columns are retaine
 - `POST /api/admin-login` — admin login
 - `GET /api/admin-session` — session check
 - `POST /api/admin-logout` — logout
+
+## Admin coupon manager and daily product order
+
+- The admin sidebar now contains only **Products**, **Top Deals**, **Coupons**, and **Logout**.
+- Product cards are shuffled using a date-based deterministic order after the remote catalog loads. The sequence changes on each local calendar day; Top Deals keep their manually assigned rank.
+- Coupon management uses the `public.coupons` table. Run the updated `SUPABASE_SETUP.sql` in the Supabase SQL Editor before deploying this version. The setup seeds `NEW05`, `FIRSTBUY`, and hidden `AMAN` defaults if they do not already exist.
+- In the admin **Coupons** tab, create or edit a fixed-rupee discount, set an optional minimum cart subtotal, activate/deactivate the code, and choose whether it appears in frontend offers. Set **Show in frontend offers** off for `AMAN`; customers can still apply it by typing the code while it remains active.
+- The `/api/coupons` API requires the existing admin session for creating, editing, and deleting coupons. Public coupon validation runs server-side, including hidden coupons.

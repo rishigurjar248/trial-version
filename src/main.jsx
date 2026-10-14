@@ -54,6 +54,15 @@ const categories = [
   "Fragrance",
   "Personal Care",
 ];
+const shuffleForLocalDay = (list) => {
+  const now = new Date();
+  const dateKey = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}-${String(now.getDate()).padStart(2,"0")}`;
+  let seed = [...dateKey].reduce((acc, ch) => (acc * 31 + ch.charCodeAt(0)) >>> 0, 7);
+  const random = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
+  const out = [...list];
+  for (let i = out.length - 1; i > 0; i--) { const j = Math.floor(random() * (i + 1)); [out[i], out[j]] = [out[j], out[i]]; }
+  return out;
+};
 const initialProducts = getInitialCatalog();
 // The public storefront uses Supabase as its source of truth. Do not render
 // the bundled one-product fallback while the remote catalog is loading.
@@ -894,13 +903,14 @@ function Cart({ open, onClose, items, onChange, onRemove, onCheckout }) {
   const [coupon, setCoupon] = useState("");
   const [appliedCoupon, setAppliedCoupon] = useState("");
   const [couponMessage, setCouponMessage] = useState("");
+  const [availableCoupons, setAvailableCoupons] = useState([]);
+  const [couponConfig, setCouponConfig] = useState(null);
+  useEffect(() => { fetch("/api/coupons").then(r => r.ok ? r.json() : {coupons:[]}).then(j => setAvailableCoupons(j.coupons || [])).catch(() => setAvailableCoupons([])); }, []);
   const discountedSubtotal = items.reduce((s, x) => s + x.p.price * x.qty, 0);
   const mrpTotal = items.reduce((s, x) => s + mrp(x.p) * x.qty, 0);
   const productDiscount = Math.max(0, mrpTotal - discountedSubtotal);
-  const couponDiscount = appliedCoupon
-    ? discountedSubtotal > 1000
-      ? 49
-      : 19
+  const couponDiscount = appliedCoupon && couponConfig && discountedSubtotal >= Number(couponConfig.minSubtotal || 0)
+    ? Math.min(discountedSubtotal, Number(couponConfig.discount) || 0)
     : 0;
   const total = Math.max(0, discountedSubtotal - couponDiscount);
 
@@ -924,33 +934,31 @@ function Cart({ open, onClose, items, onChange, onRemove, onCheckout }) {
     })
     .slice(0, 4);
 
-  const applyCoupon = () => {
-    const code = coupon.trim().toUpperCase();
-    if (code === "NEW05" || code === "FIRSTBUY") {
-      const amount = discountedSubtotal > 1000 ? 49 : 19;
-      setAppliedCoupon(code);
-      setCouponMessage(`${code} applied · ₹${amount} OFF`);
-    } else {
-      setAppliedCoupon("");
-      setCouponMessage("Use NEW05 or FIRSTBUY for ₹19 OFF");
-    }
+  const applyCoupon = async (candidate = coupon) => {
+    const code = candidate.trim().toUpperCase();
+    if (!code) { setAppliedCoupon(""); setCouponConfig(null); setCouponMessage("Enter a coupon code."); return; }
+    try {
+      const res = await fetch("/api/coupons", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({code, subtotal:discountedSubtotal}) });
+      const json = await res.json();
+      if (!res.ok || !json.coupon) throw new Error(json.error || "Invalid coupon code.");
+      setCouponConfig(json.coupon); setAppliedCoupon(code); setCoupon(code);
+      setCouponMessage(`${code} applied · ₹${Math.min(discountedSubtotal, Number(json.coupon.discount))} OFF`);
+    } catch (e) { setAppliedCoupon(""); setCouponConfig(null); setCouponMessage(e.message || "Invalid coupon code."); }
   };
 
   useEffect(() => {
     if (!open) return;
     setCoupon(appliedCoupon || "");
-    setCouponMessage(
-      appliedCoupon
-        ? `${appliedCoupon} applied · ₹${discountedSubtotal > 1000 ? 49 : 19} OFF`
-        : "",
-    );
+    setCouponMessage(appliedCoupon && couponConfig
+      ? `${appliedCoupon} applied · ₹${Math.min(discountedSubtotal, Number(couponConfig.discount))} OFF`
+      : "");
   }, [open]);
 
   useEffect(() => {
     if (appliedCoupon) {
-      setCouponMessage(
-        `${appliedCoupon} applied · ₹${discountedSubtotal > 1000 ? 49 : 19} OFF`,
-      );
+      setCouponMessage(couponConfig && discountedSubtotal >= Number(couponConfig.minSubtotal || 0)
+        ? `${appliedCoupon} applied · ₹${Math.min(discountedSubtotal, Number(couponConfig.discount))} OFF`
+        : couponConfig ? `Minimum subtotal ₹${Number(couponConfig.minSubtotal).toLocaleString("en-IN")} required for ${appliedCoupon}.` : "");
     }
   }, [discountedSubtotal, appliedCoupon]);
 
@@ -1041,7 +1049,7 @@ function Cart({ open, onClose, items, onChange, onRemove, onCheckout }) {
                     placeholder="Enter Coupon Code"
                     aria-label="Coupon code"
                   />
-                  <button onClick={applyCoupon}>Apply</button>
+                  <button onClick={() => applyCoupon()}>Apply</button>
                 </div>
                 {couponMessage && (
                   <small
@@ -1053,32 +1061,13 @@ function Cart({ open, onClose, items, onChange, onRemove, onCheckout }) {
                   </small>
                 )}
                 <div className="coupon-offer-list">
-                  <button
-                    onClick={() => {
-                      setCoupon("NEW05");
-                      setAppliedCoupon("NEW05");
-                      setCouponMessage(
-                        `NEW05 applied · ₹${discountedSubtotal > 1000 ? 49 : 19} OFF`,
-                      );
-                    }}
-                  >
-                    NEW05 <b>₹{discountedSubtotal > 1000 ? 49 : 19} OFF</b>
-                  </button>
-                  <button
-                    onClick={() => {
-                      setCoupon("FIRSTBUY");
-                      setAppliedCoupon("FIRSTBUY");
-                      setCouponMessage(
-                        `FIRSTBUY applied · ₹${discountedSubtotal > 1000 ? 49 : 19} OFF`,
-                      );
-                    }}
-                  >
-                    FIRSTBUY <b>₹{discountedSubtotal > 1000 ? 49 : 19} OFF</b>
-                  </button>
+                  {availableCoupons.map(c => <button key={c.code} onClick={() => { setCoupon(c.code); applyCoupon(c.code); }}>
+                    {c.code} <b>₹{c.discount} OFF</b>
+                  </button>)}
                 </div>
                 <button
                   className="offers-link"
-                  onClick={() => setCoupon("NEW05")}
+                  onClick={() => { if (availableCoupons[0]) { setCoupon(availableCoupons[0].code); applyCoupon(availableCoupons[0].code); } }}
                 >
                   View All Offers <ArrowRight size={16} />
                 </button>
@@ -1449,7 +1438,7 @@ function App() {
         if (!Array.isArray(remote) || remote.length === 0) {
           throw new Error("No products were returned from the catalog.");
         }
-        products = remote;
+        products = shuffleForLocalDay(remote);
         specialDeals = remote
           .filter((p) => p.isTop10)
           .sort(

@@ -79,3 +79,20 @@ on conflict (id) do update set public = true;
 
 -- Optional cleanup helper for old legacy image columns is intentionally not automatic.
 -- Keep them for backward compatibility with the existing DealKart code.
+
+-- Coupon management: fixed-rupee discounts, private codes, and visibility controls.
+create table if not exists public.coupons (
+  code text primary key,
+  discount numeric not null check (discount > 0),
+  min_subtotal numeric not null default 0 check (min_subtotal >= 0),
+  is_active boolean not null default true,
+  is_public boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+alter table public.coupons enable row level security;
+drop policy if exists "Public can read visible active coupons" on public.coupons;
+create policy "Public can read visible active coupons" on public.coupons for select to anon, authenticated using (is_active = true and is_public = true);
+insert into public.coupons (code, discount, min_subtotal, is_active, is_public)
+values ('NEW05', 19, 0, true, true), ('FIRSTBUY', 19, 0, true, true), ('AMAN', 19, 0, true, false)
+on conflict (code) do nothing;
