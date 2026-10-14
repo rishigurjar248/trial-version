@@ -6640,3 +6640,4 @@ svg {
 .site.light-theme ::-webkit-scrollbar-track { background: #eee9f8; }
 .site.light-theme ::-webkit-scrollbar-thumb { background: #c4b8d9; }
 .site.light-theme ::-webkit-scrollbar-thumb:hover { background: #a493c1; }
+.site.light-theme .homepage-special .section-heading h2 strong { color: #f5c400; }
