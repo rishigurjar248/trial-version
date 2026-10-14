@@ -8,6 +8,7 @@ import {
   Eye,
   Heart,
   History,
+  Gift,
   Mail,
   MapPin,
   MessageCircle,
@@ -44,6 +45,8 @@ import "./styles.css";
 const WHATSAPP_NUMBER = "919244335428";
 const SUPPORT_PHONE = "9244335428";
 const SUPPORT_EMAIL = "mysterioofficial26@gmail.com";
+const SURPRISE_GIFT_ID = "__dealkart_surprise_gift__";
+const makeSurpriseGift = () => ({ id: SURPRISE_GIFT_ID, page: 0, name: "DealKart Surprise Gift", brand: "DealKart", category: "Free Gift", price: 0, oldPrice: 0, mrp: 0, image: dealkartSymbol, description: "A special surprise gift unlocked with your cart reward.", keyPoints: ["Free surprise gift", "Unlocked at ₹799 cart subtotal"] });
 const categories = [
   "All Deals",
   "Skincare",
@@ -167,7 +170,7 @@ const discount = (p) =>
   Math.max(0, Math.round((1 - salePrice(p) / mrp(p)) * 100));
 function waUrl(items, customer = {}, promo = {}) {
   const lines = items
-    .map(({ p, qty }) => `${p.name} | ${p.brand} | ${money(p.price)} × ${qty}`)
+    .map(({ p, qty }) => p.id === SURPRISE_GIFT_ID ? `🎁 ${p.name} | FREE × ${qty}` : `${p.name} | ${p.brand} | ${money(p.price)} × ${qty}`)
     .join("\n");
   const subtotal = items.reduce((s, x) => s + x.p.price * x.qty, 0);
   const discountAmount = promo.discount || 0;
@@ -905,6 +908,7 @@ function Cart({ open, onClose, items, onChange, onRemove, onCheckout }) {
   const [couponMessage, setCouponMessage] = useState("");
   const [availableCoupons, setAvailableCoupons] = useState([]);
   const [couponConfig, setCouponConfig] = useState(null);
+  const [offersOpen, setOffersOpen] = useState(false);
   useEffect(() => { fetch("/api/coupons").then(r => r.ok ? r.json() : {coupons:[]}).then(j => setAvailableCoupons(j.coupons || [])).catch(() => setAvailableCoupons([])); }, []);
   const discountedSubtotal = items.reduce((s, x) => s + x.p.price * x.qty, 0);
   const mrpTotal = items.reduce((s, x) => s + mrp(x.p) * x.qty, 0);
@@ -920,6 +924,11 @@ function Cart({ open, onClose, items, onChange, onRemove, onCheckout }) {
     ? Math.min(discountedSubtotal, tieredCoupon ? eligibleTierDiscount : (discountedSubtotal >= Number(couponConfig.minSubtotal || 0) ? Number(couponConfig.flatDiscount ?? couponConfig.discount) || 0 : 0))
     : 0;
   const total = Math.max(0, discountedSubtotal - couponDiscount);
+  const freeDeliveryTarget = 499;
+  const giftTarget = 799;
+  const nextRewardTarget = discountedSubtotal < freeDeliveryTarget ? freeDeliveryTarget : discountedSubtotal < giftTarget ? giftTarget : null;
+  const rewardProgress = Math.min(100, Math.round((discountedSubtotal / (nextRewardTarget || giftTarget)) * 100));
+  const amountToReward = nextRewardTarget ? Math.max(0, nextRewardTarget - discountedSubtotal) : 0;
 
   // Keep upsells relevant to what is already in the cart: use the most
   // represented category, then surface the best-discounted products in it.
@@ -997,6 +1006,18 @@ function Cart({ open, onClose, items, onChange, onRemove, onCheckout }) {
         ) : (
           <>
             <div className="cart-scroll">
+              <section className="cart-rewards" aria-label="Cart rewards progress">
+                <div className="cart-rewards-head">
+                  <span><Gift size={16} /> Unlock cart rewards</span>
+                  <b>{discountedSubtotal >= giftTarget ? "Rewards unlocked!" : `${money(discountedSubtotal)} / ${money(nextRewardTarget || giftTarget)}`}</b>
+                </div>
+                <div className="cart-reward-track"><span style={{ width: `${Math.min(100, Math.round(discountedSubtotal / giftTarget * 100))}%` }} /></div>
+                <div className="cart-reward-milestones">
+                  <span className={discountedSubtotal >= freeDeliveryTarget ? "unlocked" : ""}><Truck size={14} /> ₹499 Free delivery</span>
+                  <span className={discountedSubtotal >= giftTarget ? "unlocked" : ""}><Gift size={14} /> ₹799 Surprise gift</span>
+                </div>
+                {discountedSubtotal >= giftTarget ? <p className="reward-unlocked"><Gift size={14} /> Special surprise gift unlocked for you!</p> : <p className="reward-next">{amountToReward === 0 ? "Free delivery unlocked!" : `Add ${money(amountToReward)} more to unlock ${discountedSubtotal < freeDeliveryTarget ? "free delivery" : "your surprise gift"}.`}</p>}
+              </section>
               <div className="cart-items">
                 {items.map((x) => {
                   const itemMrp = mrp(x.p);
@@ -1004,20 +1025,21 @@ function Cart({ open, onClose, items, onChange, onRemove, onCheckout }) {
                     itemMrp > x.p.price
                       ? Math.max(0, Math.round((1 - x.p.price / itemMrp) * 100))
                       : 0;
+                  const isGiftItem = x.p.id === SURPRISE_GIFT_ID;
                   return (
-                    <div className="cart-item" key={x.p.id}>
-                      <div className="cart-item-badge">{off}% off</div>
+                    <div className={"cart-item cart-item-enter " + (isGiftItem ? "cart-gift-item" : "")} key={x.p.id}>
+                      <div className="cart-item-badge">{isGiftItem ? "FREE GIFT" : `${off}% off`}</div>
                       <img src={x.p.image} alt="" />
                       <div className="ci">
-                        <b>{x.p.name}</b>
+                        <b>{isGiftItem ? "🎁 Surprise gift unlocked!" : x.p.name}</b>
                         <small>
-                          {x.p.brand} · {x.p.category}
+                          {isGiftItem ? "Special reward · Added automatically" : `${x.p.brand} · ${x.p.category}`}
                         </small>
                         <div className="ci-price">
-                          <del>{money(mrp(x.p))}</del>
-                          <strong>{money(x.p.price)}</strong>
+                          {!isGiftItem && <del>{money(mrp(x.p))}</del>}
+                          <strong>{isGiftItem ? "FREE" : money(x.p.price)}</strong>
                         </div>
-                        <div className="qty">
+                        {!isGiftItem && <div className="qty">
                           <button
                             onClick={() => onChange(x.p, -1)}
                             aria-label="Decrease quantity"
@@ -1031,15 +1053,15 @@ function Cart({ open, onClose, items, onChange, onRemove, onCheckout }) {
                           >
                             <Plus />
                           </button>
-                        </div>
-                        <button
+                        </div>}
+                        {!isGiftItem && <button
                           className="cart-delete"
                           onClick={() => onRemove(x.p)}
                           aria-label={`Delete ${x.p.name} from cart`}
                           title="Delete item"
                         >
                           <Trash2 size={14} />
-                        </button>
+                        </button>}
                       </div>
                     </div>
                   );
@@ -1067,16 +1089,8 @@ function Cart({ open, onClose, items, onChange, onRemove, onCheckout }) {
                     {couponMessage}
                   </small>
                 )}
-                <div className="coupon-offer-list">
-                  {availableCoupons.map(c => <button key={c.code} onClick={() => { setCoupon(c.code); applyCoupon(c.code); }}>
-                    {c.code} <b>₹{c.maxDiscount || c.discount} OFF</b>
-                  </button>)}
-                </div>
-                <button
-                  className="offers-link"
-                  onClick={() => { if (availableCoupons[0]) { setCoupon(availableCoupons[0].code); applyCoupon(availableCoupons[0].code); } }}
-                >
-                  View All Offers <ArrowRight size={16} />
+                <button className="offers-link" onClick={() => setOffersOpen(true)}>
+                  <span><b>View All Offers</b><small>{availableCoupons.length} available coupons and their terms</small></span><ArrowRight size={17} />
                 </button>
               </section>
 
@@ -1149,9 +1163,30 @@ function Cart({ open, onClose, items, onChange, onRemove, onCheckout }) {
           </>
         )}
       </aside>
+      {offersOpen && <div className="offers-modal-backdrop" role="presentation" onMouseDown={e => { if (e.target === e.currentTarget) setOffersOpen(false); }}>
+        <section className="offers-modal" role="dialog" aria-modal="true" aria-labelledby="offers-modal-title">
+          <header><div><span className="offers-kicker"><Sparkles size={13} /> DEALKART COUPONS</span><h2 id="offers-modal-title">Available offers</h2><p>Choose a coupon to apply it to your current cart.</p></div><button onClick={() => setOffersOpen(false)} aria-label="Close offers"><X size={20} /></button></header>
+          <div className="offers-modal-list">
+            {availableCoupons.map(c => {
+              const tiers = [{min:Number(c.tier1Min ?? 499), discount:Number(c.tier1Discount || 0)}, {min:Number(c.tier2Min ?? 999), discount:Number(c.tier2Discount || 0)}, {min:Number(c.tier3Min ?? 1999), discount:Number(c.tier3Discount || 0)}].filter(t => t.discount > 0).sort((a,b)=>a.min-b.min);
+              const maxOff = Math.max(Number(c.discount)||0, ...tiers.map(t=>t.discount));
+              return <article className="offers-modal-card" key={c.code}>
+                <div className="offer-code-mark"><TicketIconFallback /></div>
+                <div className="offer-copy"><div className="offer-code-line"><b>{c.code}</b><strong>Up to ₹{maxOff} OFF</strong></div>
+                  {tiers.length ? <ul>{tiers.map(t => <li key={`${t.min}-${t.discount}`}>Shop for <b>₹{t.min} or more</b> and get <b>₹{t.discount} off</b></li>)}</ul> : <p>Shop for ₹{Number(c.minSubtotal || 0)} or more and get ₹{Number(c.discount || 0)} off.</p>}
+                  <small>Applies to discounted cart subtotal · One coupon per order</small>
+                </div>
+                <button onClick={() => { setCoupon(c.code); applyCoupon(c.code); setOffersOpen(false); }}>Apply</button>
+              </article>;
+            })}
+            {!availableCoupons.length && <div className="offers-empty">No public offers are available right now. You can still enter a private coupon code manually.</div>}
+          </div>
+        </section>
+      </div>}
     </>
   );
 }
+function TicketIconFallback() { return <span className="offer-ticket-symbol">%</span>; }
 function Checkout({
   open,
   onClose,
@@ -1546,7 +1581,7 @@ function App() {
     reveal();
     window.addEventListener("scroll", reveal, { passive: true });
     return () => window.removeEventListener("scroll", reveal);
-  }, [q, category]);
+  }, [q, category, catalogStatus, catalogVersion]);
   useEffect(() => {
     let last = window.scrollY;
     const onScroll = () => {
@@ -1609,6 +1644,12 @@ function App() {
       );
     });
   const remove = (p) => setCart((c) => c.filter((x) => x.p.id !== p.id));
+  useEffect(() => {
+    const merchandiseSubtotal = cart.filter(x => x.p.id !== SURPRISE_GIFT_ID).reduce((sum, x) => sum + x.p.price * x.qty, 0);
+    const hasGift = cart.some(x => x.p.id === SURPRISE_GIFT_ID);
+    if (merchandiseSubtotal >= 799 && !hasGift) setCart(current => [...current, { p: makeSurpriseGift(), qty: 1 }]);
+    else if (merchandiseSubtotal < 799 && hasGift) setCart(current => current.filter(x => x.p.id !== SURPRISE_GIFT_ID));
+  }, [cart]);
   const toggleWish = (p) => {
     setWish((w) => {
       const exists = w.some((x) => x.id === p.id);
