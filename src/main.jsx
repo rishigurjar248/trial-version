@@ -692,7 +692,26 @@ function Modal({ p, onClose, onAdd, onWish, wished, onSeen }) {
     </div>
   );
 }
-function Wishlist({ open, onClose, items, onOpen, onAdd, onWish }) {
+function Wishlist({
+  open,
+  onClose,
+  items,
+  onOpen,
+  onAdd,
+  onAddAll,
+  onClear,
+  onWish,
+}) {
+  const wishlistTotal = items.reduce(
+    (sum, product) => sum + Number(product.price || 0),
+    0,
+  );
+  const wishlistSavings = items.reduce(
+    (sum, product) =>
+      sum + Math.max(0, mrp(product) - Number(product.price || 0)),
+    0,
+  );
+
   return (
     <>
       <div
@@ -701,15 +720,25 @@ function Wishlist({ open, onClose, items, onOpen, onAdd, onWish }) {
       />
       <aside className={"wishlist-panel " + (open ? "open" : "")}>
         <div className="wishlist-head">
-          <div>
-            <b>Your wishlist</b>
-            <small>
-              {items.length} saved {items.length === 1 ? "item" : "items"}
-            </small>
+          <div className="wishlist-heading">
+            <Heart size={21} fill="currentColor" aria-hidden="true" />
+            <div>
+              <b>Your wishlist</b>
+              <small>
+                {items.length} saved {items.length === 1 ? "item" : "items"}
+              </small>
+            </div>
           </div>
-          <button onClick={onClose}>
-            <X />
-          </button>
+          <div className="wishlist-head-actions">
+            {items.length > 0 && (
+              <button className="wishlist-clear" onClick={onClear}>
+                <Trash2 size={14} /> Clear all
+              </button>
+            )}
+            <button onClick={onClose} aria-label="Close wishlist">
+              <X />
+            </button>
+          </div>
         </div>
         {!items.length ? (
           <div className="wishlist-empty">
@@ -721,33 +750,76 @@ function Wishlist({ open, onClose, items, onOpen, onAdd, onWish }) {
             </a>
           </div>
         ) : (
-          <div className="wishlist-list">
-            {items.map((p) => (
-              <div className="wish-item" key={p.id}>
-                <img src={p.image} alt={p.name} />
-                <div>
-                  <small>{p.brand}</small>
-                  <b>{p.name}</b>
-                  <strong>{money(p.price)}</strong>
-                  <div>
-                    <button onClick={() => onAdd(p)}>
-                      <ShoppingCart size={13} /> Add to cart
-                    </button>
-                    <button className="wish-view" onClick={() => onOpen(p)}>
-                      View
-                    </button>
+          <>
+            <div className="wishlist-toolbar">
+              <span>Saved for later</span>
+              <span>
+                {items.length} {items.length === 1 ? "product" : "products"}
+              </span>
+            </div>
+            <div className="wishlist-list">
+              {items.map((p) => (
+                <article className="wish-item" key={p.id}>
+                  <button
+                    className="wish-image"
+                    onClick={() => onOpen(p)}
+                    aria-label={`View ${p.name}`}
+                  >
+                    <img src={p.image} alt="" />
+                  </button>
+                  <div className="wish-content">
+                    <small>{p.brand}</small>
+                    <b>{p.name}</b>
+                    <div className="wish-price-line">
+                      <strong>{money(p.price)}</strong>
+                      {mrp(p) > p.price && <del>{money(mrp(p))}</del>}
+                      {discount(p) > 0 && <em>{discount(p)}% off</em>}
+                    </div>
+                    <div className="wish-rating">
+                      <Star size={12} fill="currentColor" aria-hidden="true" />
+                      <b>{Number(p.rating || 4.3).toFixed(1)}</b>
+                      <span>({p.reviews || "0"} reviews)</span>
+                    </div>
+                    <div className="wish-actions">
+                      <button
+                        className="wish-add"
+                        onClick={() => {
+                          onAdd(p);
+                          onClose();
+                        }}
+                      >
+                        <ShoppingCart size={13} /> Add to cart
+                      </button>
+                      <button className="wish-view" onClick={() => onOpen(p)}>
+                        <Eye size={13} /> View
+                      </button>
+                    </div>
                   </div>
-                </div>
-                <button
-                  className="wish-remove"
-                  onClick={() => onWish(p)}
-                  aria-label="Remove from wishlist"
-                >
-                  <X size={15} />
-                </button>
+                  <button
+                    className="wish-remove"
+                    onClick={() => onWish(p)}
+                    aria-label={`Remove ${p.name} from wishlist`}
+                    title="Remove from wishlist"
+                  >
+                    <X size={15} />
+                  </button>
+                </article>
+              ))}
+            </div>
+            <footer className="wishlist-footer">
+              <div className="wishlist-total">
+                <small>Wishlist total</small>
+                <b>{money(wishlistTotal)}</b>
+                {wishlistSavings > 0 && (
+                  <span>You save {money(wishlistSavings)}</span>
+                )}
               </div>
-            ))}
-          </div>
+              <button className="wishlist-add-all" onClick={onAddAll}>
+                <ShoppingCart size={16} /> Add all to cart{" "}
+                <ArrowRight size={16} />
+              </button>
+            </footer>
+          </>
         )}
       </aside>
     </>
@@ -1846,6 +1918,41 @@ function App() {
       return exists ? w.filter((x) => x.id !== p.id) : [...w, p];
     });
   };
+  const addWishlistToCart = () => {
+    if (!wish.length) return;
+    const savedItems = [...wish];
+    setCart((current) => {
+      const merged = [...current];
+      for (const product of savedItems) {
+        const existingIndex = merged.findIndex(
+          (item) => item.p.id === product.id,
+        );
+        if (existingIndex >= 0) {
+          merged[existingIndex] = {
+            ...merged[existingIndex],
+            qty: merged[existingIndex].qty + 1,
+          };
+        } else {
+          merged.push({ p: product, qty: 1 });
+        }
+      }
+      return merged;
+    });
+    setWishlistOpen(false);
+    setCartOpen(true);
+    setToast(
+      `${savedItems.length} saved ${savedItems.length === 1 ? "item" : "items"} added to cart`,
+    );
+  };
+  const clearWishlist = () => {
+    if (
+      !wish.length ||
+      !window.confirm("Remove all saved products from your wishlist?")
+    )
+      return;
+    setWish([]);
+    setToast("Wishlist cleared");
+  };
   const seen = (p) =>
     setRecent((r) => [p, ...r.filter((x) => x.id !== p.id)].slice(0, 4));
   const scrollProducts = () =>
@@ -2120,6 +2227,8 @@ function App() {
           setSelected(p);
         }}
         onAdd={add}
+        onAddAll={addWishlistToCart}
+        onClear={clearWishlist}
         onWish={toggleWish}
       />
       <Cart
