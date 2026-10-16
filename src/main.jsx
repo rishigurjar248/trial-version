@@ -1212,17 +1212,15 @@ function Cart({ open, onClose, items, onChange, onRemove, onCheckout }) {
                   </span>
                   <b>{money(discountedSubtotal)}</b>
                 </div>
-                <div className="cart-summary-row">
-                  <span className="cart-summary-label">
-                    <Ticket size={16} aria-hidden="true" />
-                    {appliedCoupon
-                      ? `Coupon Deduction (${appliedCoupon})`
-                      : "Coupon Deduction"}
-                  </span>
-                  <b>
-                    {couponDiscount > 0 ? `−${money(couponDiscount)}` : "−"}
-                  </b>
-                </div>
+                {appliedCoupon && (
+                  <div className="cart-summary-row">
+                    <span className="cart-summary-label">
+                      <Ticket size={16} aria-hidden="true" />
+                      {`Coupon Deduction (${appliedCoupon})`}
+                    </span>
+                    <b>−{money(couponDiscount)}</b>
+                  </div>
+                )}
                 <div className="cart-final-line">
                   <div className="cart-final-label">
                     <b>Estimated Total</b>

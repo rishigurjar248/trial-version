@@ -8137,3 +8137,30 @@ svg {
     display: none;
   }
 }
+@media (max-width: 600px) {
+  .cart-foot {
+    padding-top: 3px;
+  }
+  .cart-summary-heading {
+    margin-bottom: 1px;
+  }
+  .cart-calculation .cart-summary-row {
+    min-height: 20px;
+  }
+  .cart-calculation .cart-final-line {
+    margin-top: 2px;
+    padding-top: 3px;
+    padding-bottom: 3px;
+  }
+  .cart-final-label small {
+    display: none;
+  }
+  .cart-saved {
+    margin-bottom: 3px;
+    padding-top: 3px;
+    padding-bottom: 3px;
+  }
+  .cart-foot > button {
+    min-height: 35px;
+  }
+}
