@@ -7732,3 +7732,205 @@ svg {
   border-radius: 12px;
   font-size: 16px;
 }
+.cart-foot {
+  padding: 13px 14px 16px;
+  border-top: 1px solid #f1e8d8;
+  background: #fffdfa;
+}
+.cart-summary-heading,
+.cart-summary-title,
+.cart-saving-pill,
+.cart-summary-row,
+.cart-summary-label,
+.cart-final-line,
+.cart-final-prices {
+  display: flex;
+  align-items: center;
+}
+.cart-summary-heading {
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 9px;
+}
+.cart-summary-title {
+  gap: 9px;
+  color: #1e293b;
+}
+.cart-summary-title > svg {
+  color: #ef9700;
+  stroke-width: 2.5;
+}
+.cart-summary-title b {
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 18px;
+}
+.cart-saving-pill {
+  gap: 5px;
+  padding: 7px 10px;
+  border-radius: 999px;
+  background: #fff3ca;
+  color: #b56800;
+  font-size: 10px;
+  white-space: nowrap;
+}
+.cart-saving-pill > svg {
+  color: #f29a00;
+}
+.cart-saving-pill b {
+  font-family: inherit;
+  font-size: inherit;
+}
+.cart-calculation {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin-bottom: 9px !important;
+}
+.cart-calculation .cart-summary-row {
+  justify-content: space-between;
+  min-height: 33px;
+  margin: 0 !important;
+  border-bottom: 1px solid #f0f1f2;
+}
+.cart-summary-label {
+  min-width: 0;
+  gap: 9px;
+  color: #293449 !important;
+  font-size: 12px !important;
+}
+.cart-summary-label > svg {
+  flex: 0 0 auto;
+  color: #a4aebb;
+}
+.cart-summary-row:nth-child(2) .cart-summary-label > svg,
+.cart-summary-row:nth-child(2) > b {
+  color: #169447;
+}
+.cart-summary-row:nth-child(3) .cart-summary-label > svg {
+  color: #f2a100;
+}
+.cart-calculation .cart-summary-row > b {
+  color: #222b3b;
+  font-size: 12px;
+}
+.cart-calculation .cart-final-line {
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 9px;
+  padding: 10px 12px;
+  border: 1px solid #ffe08b;
+  border-radius: 12px;
+  background: linear-gradient(105deg, #fff8df, #fffdf4);
+}
+.cart-final-label {
+  display: grid;
+  gap: 3px;
+}
+.cart-calculation .cart-final-label > b {
+  color: #171d28;
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 17px;
+}
+.cart-final-label small {
+  color: #777b83;
+  font-size: 10px;
+}
+.cart-final-prices {
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.cart-final-prices del {
+  color: #9a9da1;
+  font-size: 12px;
+}
+.cart-calculation .cart-final-prices > b {
+  color: #141a24;
+  font-size: 25px;
+  line-height: 1;
+}
+.cart-final-prices em {
+  padding: 5px 8px;
+  border-radius: 999px;
+  background: #c9f4cf;
+  color: #176c30;
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 900;
+}
+.cart-saved {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  max-width: none;
+  margin: 0 0 10px;
+  padding: 10px 13px;
+  border: 1px solid #ffefc0;
+  border-radius: 12px;
+  background: linear-gradient(110deg, #fff7df, #fffaf0);
+  color: #1e293b;
+  box-shadow: none;
+  text-align: left;
+}
+.cart-saved > svg {
+  flex: 0 0 auto;
+  color: #ef9400;
+  stroke-width: 1.9;
+}
+.cart-saved > div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+.cart-saved b {
+  color: #1e293b;
+  font-size: 13px;
+}
+.cart-saved strong {
+  color: #ee4d2d;
+  font-size: 15px;
+}
+.cart-saved span {
+  color: #586174;
+  font-size: 10px;
+}
+.cart-savings-sparkle {
+  margin-left: auto;
+  color: #f2af32;
+}
+.cart-foot > button {
+  justify-content: center;
+  gap: 10px;
+  min-height: 52px;
+  margin-top: 0;
+  border: 1px solid #f2b500;
+  border-radius: 15px;
+  background: linear-gradient(180deg, #ffdb39, #ffc21b);
+  color: #171717;
+  box-shadow: 0 5px 14px rgba(220, 155, 0, 0.22);
+  font-size: 15px;
+  font-weight: 900;
+}
+@media (max-width: 600px) {
+  .cart-foot {
+    padding: 10px 12px max(12px, env(safe-area-inset-bottom));
+  }
+  .cart-summary-title b {
+    font-size: 16px;
+  }
+  .cart-saving-pill {
+    padding: 6px 8px;
+    font-size: 9px;
+  }
+  .cart-calculation .cart-summary-row {
+    min-height: 30px;
+  }
+  .cart-calculation .cart-final-line {
+    padding: 9px 10px;
+  }
+  .cart-calculation .cart-final-label > b {
+    font-size: 15px;
+  }
+  .cart-calculation .cart-final-prices > b {
+    font-size: 21px;
+  }
+}

@@ -1,5 +1,6 @@
 import {
   ArrowRight,
+  BadgePercent,
   Check,
   ChevronLeft,
   ChevronRight,
@@ -8,12 +9,14 @@ import {
   Eye,
   Heart,
   History,
+  LockKeyhole,
   Mail,
   MapPin,
   MessageCircle,
   Minus,
   Moon,
   Phone,
+  PiggyBank,
   Plus,
   RotateCcw,
   Search,
@@ -23,6 +26,8 @@ import {
   Sparkles,
   Star,
   Sun,
+  Tag,
+  Ticket,
   Trash2,
   Truck,
   UserRound,
@@ -1179,25 +1184,50 @@ function Cart({ open, onClose, items, onChange, onRemove, onCheckout }) {
             </div>
 
             <div className="cart-foot">
+              <div className="cart-summary-heading">
+                <div className="cart-summary-title">
+                  <ShoppingCart size={22} aria-hidden="true" />
+                  <b>Order Summary</b>
+                </div>
+                {totalSaved > 0 && (
+                  <div className="cart-saving-pill">
+                    <BadgePercent size={16} aria-hidden="true" />
+                    <span>
+                      You're Saving <b>{money(totalSaved)}</b>
+                    </span>
+                  </div>
+                )}
+              </div>
               <div className="cart-calculation">
-                <div>
-                  <span>MRP</span>
+                <div className="cart-summary-row">
+                  <span className="cart-summary-label">
+                    <Tag size={16} aria-hidden="true" /> MRP (Total)
+                  </span>
                   <b>{money(mrpTotal)}</b>
                 </div>
-                <div>
-                  <span>Discounted Price</span>
+                <div className="cart-summary-row">
+                  <span className="cart-summary-label">
+                    <BadgePercent size={16} aria-hidden="true" /> Discounted
+                    Price
+                  </span>
                   <b>{money(discountedSubtotal)}</b>
                 </div>
-                <div>
-                  <span>
+                <div className="cart-summary-row">
+                  <span className="cart-summary-label">
+                    <Ticket size={16} aria-hidden="true" />
                     {appliedCoupon
                       ? `Coupon Deduction (${appliedCoupon})`
                       : "Coupon Deduction"}
                   </span>
-                  <b>−{money(couponDiscount)}</b>
+                  <b>
+                    {couponDiscount > 0 ? `−${money(couponDiscount)}` : "−"}
+                  </b>
                 </div>
                 <div className="cart-final-line">
-                  <span>Estimated Total</span>
+                  <div className="cart-final-label">
+                    <b>Estimated Total</b>
+                    <small>Inclusive of all taxes</small>
+                  </div>
                   <div className="cart-final-prices">
                     {mrpTotal > total && <del>{money(mrpTotal)}</del>}
                     <b>{money(total)}</b>
@@ -1207,10 +1237,22 @@ function Cart({ open, onClose, items, onChange, onRemove, onCheckout }) {
                   </div>
                 </div>
               </div>
-              <div className="cart-saved">
-                <b>₹{totalSaved.toLocaleString("en-IN")}</b>
-                <span>Saved so far</span>
-              </div>
+              {totalSaved > 0 && (
+                <div className="cart-saved">
+                  <PiggyBank size={34} aria-hidden="true" />
+                  <div>
+                    <b>
+                      You are saving <strong>{money(totalSaved)}</strong>
+                    </b>
+                    <span>Great choice! Keep shopping and save more.</span>
+                  </div>
+                  <Sparkles
+                    className="cart-savings-sparkle"
+                    size={18}
+                    aria-hidden="true"
+                  />
+                </div>
+              )}
               <button
                 onClick={() =>
                   onCheckout({
@@ -1219,7 +1261,9 @@ function Cart({ open, onClose, items, onChange, onRemove, onCheckout }) {
                   })
                 }
               >
-                Checkout
+                <LockKeyhole size={18} aria-hidden="true" />
+                <span>Checkout Now</span>
+                <ArrowRight size={19} aria-hidden="true" />
               </button>
             </div>
           </>
