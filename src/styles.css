@@ -8164,23 +8164,3 @@ svg {
     min-height: 35px;
   }
 }
-@media (max-width: 600px) {
-  .cart-foot {
-    padding-top: 2px;
-    padding-bottom: max(4px, env(safe-area-inset-bottom));
-  }
-  .cart-calculation .cart-summary-row {
-    min-height: 18px;
-  }
-  .cart-calculation .cart-final-line {
-    margin-top: 1px;
-    padding-top: 2px;
-    padding-bottom: 2px;
-  }
-  .cart-saved {
-    display: none;
-  }
-  .cart-foot > button {
-    min-height: 33px;
-  }
-}
