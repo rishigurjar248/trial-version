@@ -20,17 +20,57 @@ const asNumber = (value, fallback = 0) => {
   return Number.isFinite(n) ? n : fallback;
 };
 
+export const productReviewCount = (product) => {
+  const count = asNumber(product.reviewCount ?? product.review_count, 0);
+  if (count > 0) return count;
+
+  const match = String(product.reviews ?? "0")
+    .trim()
+    .toLowerCase()
+    .replace(/,/g, "")
+    .match(/^(\d+(?:\.\d+)?)\s*([km])?$/);
+  if (!match) return 0;
+  return (
+    Number(match[1]) *
+    (match[2] === "m" ? 1000000 : match[2] === "k" ? 1000 : 1)
+  );
+};
+
+export const compareProductsByRating = (a, b) => {
+  const ratingDifference = asNumber(b.rating, 4.3) - asNumber(a.rating, 4.3);
+  if (ratingDifference !== 0) return ratingDifference;
+  const reviewDifference = productReviewCount(b) - productReviewCount(a);
+  return (
+    reviewDifference || String(a.name ?? "").localeCompare(String(b.name ?? ""))
+  );
+};
+
+export const compareStorefrontOrder = (a, b) => {
+  const rankFor = (product) => {
+    if (product.storefrontRank == null || product.storefrontRank === "")
+      return null;
+    const rank = Number(product.storefrontRank);
+    return Number.isFinite(rank) && rank > 0 ? rank : null;
+  };
+  const aRank = rankFor(a);
+  const bRank = rankFor(b);
+  if (aRank != null && bRank != null && aRank !== bRank) return aRank - bRank;
+  if ((aRank != null) !== (bRank != null)) return aRank != null ? -1 : 1;
+  return compareProductsByRating(a, b);
+};
+
 export const normalize = (p = {}, index = 0) => {
   const keyPoints = asArray(p.keyPoints ?? p.key_points ?? p.specs).slice(0, 4);
   const legacyGallery = asArray(p.galleryImages ?? p.gallery_images);
   const legacyImages = asArray(p.images);
   const imageUrls = asArray(p.imageUrls ?? p.image_urls);
-  const allImages = [...new Set([
-    ...imageUrls,
-    p.image,
-    ...legacyGallery,
-    ...legacyImages,
-  ].filter(Boolean))].slice(0, 5);
+  const allImages = [
+    ...new Set(
+      [...imageUrls, p.image, ...legacyGallery, ...legacyImages].filter(
+        Boolean,
+      ),
+    ),
+  ].slice(0, 5);
   const id = asNumber(p.id, index + 1);
   const price = asNumber(p.price, 0);
   const mrp = asNumber(p.mrp ?? p.oldPrice ?? p.old_price, price);
@@ -47,7 +87,8 @@ export const normalize = (p = {}, index = 0) => {
     oldPrice: asNumber(p.oldPrice ?? p.old_price ?? p.mrp, mrp),
     discount: asNumber(p.discount, 0),
     rating: asNumber(p.rating, 4.3),
-    reviews: p.reviews != null && String(p.reviews) !== "—" ? String(p.reviews) : "0",
+    reviews:
+      p.reviews != null && String(p.reviews) !== "—" ? String(p.reviews) : "0",
     reviewCount: asNumber(p.reviewCount ?? p.review_count, 0),
     image: allImages[0] || "",
     imageUrls: allImages,
@@ -57,9 +98,15 @@ export const normalize = (p = {}, index = 0) => {
     specs: keyPoints,
     isTop10: Boolean(p.isTop10 ?? p.is_top10),
     top10Rank: p.top10Rank ?? p.top10_rank ?? null,
+    storefrontRank: p.storefrontRank ?? p.storefront_rank ?? null,
     description: String(p.description ?? ""),
     isActive: p.isActive ?? p.is_active ?? true,
-    returnEligible: p.returnEligible ?? p.return_eligible ?? p.hasReturn ?? p.has_return ?? true,
+    returnEligible:
+      p.returnEligible ??
+      p.return_eligible ??
+      p.hasReturn ??
+      p.has_return ??
+      true,
   };
 };
 
@@ -98,7 +145,8 @@ export async function fetchRemoteCatalog(fallback = [], options = {}) {
     });
     if (!res.ok) throw new Error(`Catalog request failed (${res.status})`);
     const json = await res.json();
-    if (!Array.isArray(json.products)) throw new Error("Invalid catalog response from server.");
+    if (!Array.isArray(json.products))
+      throw new Error("Invalid catalog response from server.");
     return json.products.map(normalize);
   } catch (error) {
     console.warn("Remote catalog could not be loaded.", error);

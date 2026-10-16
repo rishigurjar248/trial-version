@@ -38,7 +38,11 @@ import heroFitness from "./assets/hero-posters/fitness-stronger.webp";
 import heroFood from "./assets/hero-posters/food-clean-green.webp";
 import heroStock from "./assets/hero-posters/stock-up-days.webp";
 import heroWellness from "./assets/hero-posters/wellness-balance.webp";
-import { fetchRemoteCatalog, getInitialCatalog } from "./catalogStore";
+import {
+  compareStorefrontOrder,
+  fetchRemoteCatalog,
+  getInitialCatalog,
+} from "./catalogStore";
 import "./styles.css";
 
 const WHATSAPP_NUMBER = "919244335428";
@@ -54,15 +58,6 @@ const categories = [
   "Fragrance",
   "Personal Care",
 ];
-const shuffleForLocalDay = (list) => {
-  const now = new Date();
-  const dateKey = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}-${String(now.getDate()).padStart(2,"0")}`;
-  let seed = [...dateKey].reduce((acc, ch) => (acc * 31 + ch.charCodeAt(0)) >>> 0, 7);
-  const random = () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
-  const out = [...list];
-  for (let i = out.length - 1; i > 0; i--) { const j = Math.floor(random() * (i + 1)); [out[i], out[j]] = [out[j], out[i]]; }
-  return out;
-};
 const initialProducts = getInitialCatalog();
 // The public storefront uses Supabase as its source of truth. Do not render
 // the bundled one-product fallback while the remote catalog is loading.
@@ -319,7 +314,14 @@ function Hero({ slide, setSlide, onExplore }) {
         className="hero-poster-stage"
         style={{ "--hero-bg": `url(${s.image})` }}
       >
-        <img key={slide} src={s.image} alt={s.alt} fetchPriority={slide === 0 ? "high" : "auto"} loading={slide === 0 ? "eager" : "lazy"} decoding="async" />
+        <img
+          key={slide}
+          src={s.image}
+          alt={s.alt}
+          fetchPriority={slide === 0 ? "high" : "auto"}
+          loading={slide === 0 ? "eager" : "lazy"}
+          decoding="async"
+        />
       </div>
       <div className="hero-frame">
         <div className="hero-live">
@@ -906,21 +908,50 @@ function Cart({ open, onClose, items, onChange, onRemove, onCheckout }) {
   const [availableCoupons, setAvailableCoupons] = useState([]);
   const [couponConfig, setCouponConfig] = useState(null);
   const [offersOpen, setOffersOpen] = useState(false);
-  useEffect(() => { fetch("/api/coupons").then(r => r.ok ? r.json() : {coupons:[]}).then(j => setAvailableCoupons(j.coupons || [])).catch(() => setAvailableCoupons([])); }, []);
+  useEffect(() => {
+    fetch("/api/coupons")
+      .then((r) => (r.ok ? r.json() : { coupons: [] }))
+      .then((j) => setAvailableCoupons(j.coupons || []))
+      .catch(() => setAvailableCoupons([]));
+  }, []);
   const discountedSubtotal = items.reduce((s, x) => s + x.p.price * x.qty, 0);
   const mrpTotal = items.reduce((s, x) => s + mrp(x.p) * x.qty, 0);
   const productDiscount = Math.max(0, mrpTotal - discountedSubtotal);
-  const couponTierRules = couponConfig ? [
-    { min: Number(couponConfig.tier1Min ?? 499), discount: Number(couponConfig.tier1Discount || 0) },
-    { min: Number(couponConfig.tier2Min ?? 999), discount: Number(couponConfig.tier2Discount || 0) },
-    { min: Number(couponConfig.tier3Min ?? 1999), discount: Number(couponConfig.tier3Discount || 0) },
-  ].filter(t => t.discount > 0) : [];
+  const couponTierRules = couponConfig
+    ? [
+        {
+          min: Number(couponConfig.tier1Min ?? 499),
+          discount: Number(couponConfig.tier1Discount || 0),
+        },
+        {
+          min: Number(couponConfig.tier2Min ?? 999),
+          discount: Number(couponConfig.tier2Discount || 0),
+        },
+        {
+          min: Number(couponConfig.tier3Min ?? 1999),
+          discount: Number(couponConfig.tier3Discount || 0),
+        },
+      ].filter((t) => t.discount > 0)
+    : [];
   const tieredCoupon = couponTierRules.length > 0;
-  const eligibleTierDiscount = couponTierRules.filter(t => discountedSubtotal >= t.min).reduce((best, t) => Math.max(best, t.discount), 0);
-  const couponDiscount = appliedCoupon && couponConfig
-    ? Math.min(discountedSubtotal, tieredCoupon ? eligibleTierDiscount : (discountedSubtotal >= Number(couponConfig.minSubtotal || 0) ? Number(couponConfig.flatDiscount ?? couponConfig.discount) || 0 : 0))
-    : 0;
+  const eligibleTierDiscount = couponTierRules
+    .filter((t) => discountedSubtotal >= t.min)
+    .reduce((best, t) => Math.max(best, t.discount), 0);
+  const couponDiscount =
+    appliedCoupon && couponConfig
+      ? Math.min(
+          discountedSubtotal,
+          tieredCoupon
+            ? eligibleTierDiscount
+            : discountedSubtotal >= Number(couponConfig.minSubtotal || 0)
+              ? Number(couponConfig.flatDiscount ?? couponConfig.discount) || 0
+              : 0,
+        )
+      : 0;
   const total = Math.max(0, discountedSubtotal - couponDiscount);
+  const totalSaved = productDiscount + couponDiscount;
+  const totalDiscountPercent =
+    mrpTotal > 0 ? Math.round((totalSaved / mrpTotal) * 100) : 0;
 
   // Keep upsells relevant to what is already in the cart: use the most
   // represented category, then surface the best-discounted products in it.
@@ -944,29 +975,55 @@ function Cart({ open, onClose, items, onChange, onRemove, onCheckout }) {
 
   const applyCoupon = async (candidate = coupon) => {
     const code = candidate.trim().toUpperCase();
-    if (!code) { setAppliedCoupon(""); setCouponConfig(null); setCouponMessage("Enter a coupon code."); return; }
+    if (!code) {
+      setAppliedCoupon("");
+      setCouponConfig(null);
+      setCouponMessage("Enter a coupon code.");
+      return;
+    }
     try {
-      const res = await fetch("/api/coupons", { method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({code, subtotal:discountedSubtotal}) });
+      const res = await fetch("/api/coupons", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code, subtotal: discountedSubtotal }),
+      });
       const json = await res.json();
-      if (!res.ok || !json.coupon) throw new Error(json.error || "Invalid coupon code.");
-      setCouponConfig(json.coupon); setAppliedCoupon(code); setCoupon(code);
-      setCouponMessage(`${code} applied · ₹${Math.min(discountedSubtotal, Number(json.coupon.discount))} OFF`);
-    } catch (e) { setAppliedCoupon(""); setCouponConfig(null); setCouponMessage(e.message || "Invalid coupon code."); }
+      if (!res.ok || !json.coupon)
+        throw new Error(json.error || "Invalid coupon code.");
+      setCouponConfig(json.coupon);
+      setAppliedCoupon(code);
+      setCoupon(code);
+      setCouponMessage(
+        `${code} applied · ₹${Math.min(discountedSubtotal, Number(json.coupon.discount))} OFF`,
+      );
+    } catch (e) {
+      setAppliedCoupon("");
+      setCouponConfig(null);
+      setCouponMessage(e.message || "Invalid coupon code.");
+    }
   };
 
   useEffect(() => {
     if (!open) return;
     setCoupon(appliedCoupon || "");
-    setCouponMessage(appliedCoupon && couponConfig
-      ? (couponDiscount > 0 ? `${appliedCoupon} applied · ₹${couponDiscount} OFF` : `Add items to reach the next eligible coupon tier.`)
-      : "");
+    setCouponMessage(
+      appliedCoupon && couponConfig
+        ? couponDiscount > 0
+          ? `${appliedCoupon} applied · ₹${couponDiscount} OFF`
+          : `Add items to reach the next eligible coupon tier.`
+        : "",
+    );
   }, [open]);
 
   useEffect(() => {
     if (appliedCoupon) {
-      setCouponMessage(couponConfig && couponDiscount > 0
-        ? `${appliedCoupon} applied · ₹${couponDiscount} OFF`
-        : couponConfig ? `Add items to reach the next eligible coupon tier.` : "");
+      setCouponMessage(
+        couponConfig && couponDiscount > 0
+          ? `${appliedCoupon} applied · ₹${couponDiscount} OFF`
+          : couponConfig
+            ? `Add items to reach the next eligible coupon tier.`
+            : "",
+      );
     }
   }, [discountedSubtotal, appliedCoupon, couponConfig, couponDiscount]);
 
@@ -1011,7 +1068,9 @@ function Cart({ open, onClose, items, onChange, onRemove, onCheckout }) {
                       <img src={x.p.image} alt="" />
                       <div className="ci">
                         <b>{x.p.name}</b>
-                        <small>{x.p.brand} · {x.p.category}</small>
+                        <small>
+                          {x.p.brand} · {x.p.category}
+                        </small>
                         <div className="ci-price">
                           <del>{money(mrp(x.p))}</del>
                           <strong>{money(x.p.price)}</strong>
@@ -1068,13 +1127,26 @@ function Cart({ open, onClose, items, onChange, onRemove, onCheckout }) {
                 )}
                 <div className="coupon-offer-list">
                   {availableCoupons.slice(0, 2).map((offer) => (
-                    <button key={offer.code} onClick={() => { setCoupon(offer.code); applyCoupon(offer.code); }}>
-                      {offer.code} <b>₹{Number(offer.maxDiscount ?? offer.discount) || 0} OFF</b>
+                    <button
+                      key={offer.code}
+                      onClick={() => {
+                        setCoupon(offer.code);
+                        applyCoupon(offer.code);
+                      }}
+                    >
+                      {offer.code}{" "}
+                      <b>
+                        ₹{Number(offer.maxDiscount ?? offer.discount) || 0} OFF
+                      </b>
                     </button>
                   ))}
                 </div>
-                <button className="offers-link" onClick={() => setOffersOpen(true)}>
-                  <b>View All Offers</b><ArrowRight size={17} />
+                <button
+                  className="offers-link"
+                  onClick={() => setOffersOpen(true)}
+                >
+                  <b>View All Offers</b>
+                  <ArrowRight size={17} />
                 </button>
               </section>
 
@@ -1125,13 +1197,19 @@ function Cart({ open, onClose, items, onChange, onRemove, onCheckout }) {
                   <b>−{money(couponDiscount)}</b>
                 </div>
                 <div className="cart-final-line">
-                  <span>Final Payable</span>
-                  <b>{money(total)}</b>
+                  <span>Estimated Total</span>
+                  <div className="cart-final-prices">
+                    {mrpTotal > total && <del>{money(mrpTotal)}</del>}
+                    <b>{money(total)}</b>
+                    {totalDiscountPercent > 0 && (
+                      <em>{totalDiscountPercent}% OFF</em>
+                    )}
+                  </div>
                 </div>
               </div>
               <div className="cart-saved">
-                ₹{(productDiscount + couponDiscount).toLocaleString("en-IN")}{" "}
-                Saved so far!
+                <b>₹{totalSaved.toLocaleString("en-IN")}</b>
+                <span>Saved so far</span>
               </div>
               <button
                 onClick={() =>
@@ -1147,30 +1225,115 @@ function Cart({ open, onClose, items, onChange, onRemove, onCheckout }) {
           </>
         )}
       </aside>
-      {offersOpen && <div className="offers-modal-backdrop" role="presentation" onMouseDown={e => { if (e.target === e.currentTarget) setOffersOpen(false); }}>
-        <section className="offers-modal" role="dialog" aria-modal="true" aria-labelledby="offers-modal-title">
-          <header><div><span className="offers-kicker"><Sparkles size={13} /> DEALKART COUPONS</span><h2 id="offers-modal-title">Available offers</h2><p>Choose a coupon to apply it to your current cart.</p></div><button onClick={() => setOffersOpen(false)} aria-label="Close offers"><X size={20} /></button></header>
-          <div className="offers-modal-list">
-            {availableCoupons.map(c => {
-              const tiers = [{min:Number(c.tier1Min ?? 499), discount:Number(c.tier1Discount || 0)}, {min:Number(c.tier2Min ?? 999), discount:Number(c.tier2Discount || 0)}, {min:Number(c.tier3Min ?? 1999), discount:Number(c.tier3Discount || 0)}].filter(t => t.discount > 0).sort((a,b)=>a.min-b.min);
-              const maxOff = Math.max(Number(c.discount)||0, ...tiers.map(t=>t.discount));
-              return <article className="offers-modal-card" key={c.code}>
-                <div className="offer-code-mark"><TicketIconFallback /></div>
-                <div className="offer-copy"><div className="offer-code-line"><b>{c.code}</b><strong>Up to ₹{maxOff} OFF</strong></div>
-                  {tiers.length ? <ul>{tiers.map(t => <li key={`${t.min}-${t.discount}`}>Shop for <b>₹{t.min} or more</b> and get <b>₹{t.discount} off</b></li>)}</ul> : <p>Shop for ₹{Number(c.minSubtotal || 0)} or more and get ₹{Number(c.discount || 0)} off.</p>}
-                  <small>Applies to discounted cart subtotal · One coupon per order</small>
+      {offersOpen && (
+        <div
+          className="offers-modal-backdrop"
+          role="presentation"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) setOffersOpen(false);
+          }}
+        >
+          <section
+            className="offers-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="offers-modal-title"
+          >
+            <header>
+              <div>
+                <span className="offers-kicker">
+                  <Sparkles size={13} /> DEALKART COUPONS
+                </span>
+                <h2 id="offers-modal-title">Available offers</h2>
+                <p>Choose a coupon to apply it to your current cart.</p>
+              </div>
+              <button
+                onClick={() => setOffersOpen(false)}
+                aria-label="Close offers"
+              >
+                <X size={20} />
+              </button>
+            </header>
+            <div className="offers-modal-list">
+              {availableCoupons.map((c) => {
+                const tiers = [
+                  {
+                    min: Number(c.tier1Min ?? 499),
+                    discount: Number(c.tier1Discount || 0),
+                  },
+                  {
+                    min: Number(c.tier2Min ?? 999),
+                    discount: Number(c.tier2Discount || 0),
+                  },
+                  {
+                    min: Number(c.tier3Min ?? 1999),
+                    discount: Number(c.tier3Discount || 0),
+                  },
+                ]
+                  .filter((t) => t.discount > 0)
+                  .sort((a, b) => a.min - b.min);
+                const maxOff = Math.max(
+                  Number(c.discount) || 0,
+                  ...tiers.map((t) => t.discount),
+                );
+                return (
+                  <article className="offers-modal-card" key={c.code}>
+                    <div className="offer-code-mark">
+                      <TicketIconFallback />
+                    </div>
+                    <div className="offer-copy">
+                      <div className="offer-code-line">
+                        <b>{c.code}</b>
+                        <strong>Up to ₹{maxOff} OFF</strong>
+                      </div>
+                      {tiers.length ? (
+                        <ul>
+                          {tiers.map((t) => (
+                            <li key={`${t.min}-${t.discount}`}>
+                              Shop for <b>₹{t.min} or more</b> and get{" "}
+                              <b>₹{t.discount} off</b>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p>
+                          Shop for ₹{Number(c.minSubtotal || 0)} or more and get
+                          ₹{Number(c.discount || 0)} off.
+                        </p>
+                      )}
+                      <small>
+                        Applies to discounted cart subtotal · One coupon per
+                        order
+                      </small>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setCoupon(c.code);
+                        applyCoupon(c.code);
+                        setOffersOpen(false);
+                      }}
+                    >
+                      Apply
+                    </button>
+                  </article>
+                );
+              })}
+              {!availableCoupons.length && (
+                <div className="offers-empty">
+                  No public offers are available right now. You can still enter
+                  a private coupon code manually.
                 </div>
-                <button onClick={() => { setCoupon(c.code); applyCoupon(c.code); setOffersOpen(false); }}>Apply</button>
-              </article>;
-            })}
-            {!availableCoupons.length && <div className="offers-empty">No public offers are available right now. You can still enter a private coupon code manually.</div>}
-          </div>
-        </section>
-      </div>}
+              )}
+            </div>
+          </section>
+        </div>
+      )}
     </>
   );
 }
-function TicketIconFallback() { return <span className="offer-ticket-symbol">%</span>; }
+function TicketIconFallback() {
+  return <span className="offer-ticket-symbol">%</span>;
+}
 function Checkout({
   open,
   onClose,
@@ -1464,7 +1627,7 @@ function App() {
         if (!Array.isArray(remote) || remote.length === 0) {
           throw new Error("No products were returned from the catalog.");
         }
-        products = shuffleForLocalDay(remote);
+        products = remote;
         specialDeals = remote
           .filter((p) => p.isTop10)
           .sort(
@@ -1583,21 +1746,23 @@ function App() {
   }, [toast]);
   const filtered = useMemo(() => {
     const s = q.toLowerCase().trim();
-    return products.filter(
-      (p) =>
-        (category === "All Deals" || p.category === category) &&
-        (!s ||
-          [
-            p.name,
-            p.brand,
-            p.category,
-            p.description,
-            ...(Array.isArray(p.specs) ? p.specs : []),
-          ]
-            .join(" ")
-            .toLowerCase()
-            .includes(s)),
-    );
+    return products
+      .filter(
+        (p) =>
+          (category === "All Deals" || p.category === category) &&
+          (!s ||
+            [
+              p.name,
+              p.brand,
+              p.category,
+              p.description,
+              ...(Array.isArray(p.specs) ? p.specs : []),
+            ]
+              .join(" ")
+              .toLowerCase()
+              .includes(s)),
+      )
+      .sort(compareStorefrontOrder);
   }, [q, category, catalogVersion]);
   const submitSearch = (value) => {
     const search = value.trim();
