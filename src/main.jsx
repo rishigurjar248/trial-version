@@ -1964,7 +1964,7 @@ function App() {
     return (
       <div
         id="top"
-        className={`site ${theme === "light" ? "light-theme" : ""} ${page === "home" ? "home-page" : ""}`}
+        className={`site ${theme === "light" ? "light-theme" : ""}`}
       >
         <Header
           query={q}
@@ -2007,10 +2007,7 @@ function App() {
     );
   }
   return (
-    <div
-      id="top"
-      className={`site ${theme === "light" ? "light-theme" : ""} ${page === "home" ? "home-page" : ""}`}
-    >
+    <div id="top" className={`site ${theme === "light" ? "light-theme" : ""}`}>
       <Header
         query={q}
         setQuery={setQ}
