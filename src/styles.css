@@ -8535,11 +8535,6 @@ svg {
   color: #6500ff;
   border-color: #e5dcfa;
 }
-.site.light-theme.home-page .hero-explore {
-  background: linear-gradient(100deg, #6500ff, #8e2bff);
-  color: #fff;
-  box-shadow: 0 10px 26px rgba(101, 0, 255, 0.25);
-}
 .site.light-theme.home-page .trust {
   background: #fff;
   border-color: #e9e1fb;
@@ -8588,11 +8583,6 @@ svg {
 .site.light-theme.home-page .pic {
   background: #f7f4ff;
 }
-.site.light-theme.home-page .badge {
-  background: #ff3c54;
-  color: #fff;
-  box-shadow: none;
-}
 .site.light-theme.home-page .heart {
   background: rgba(255, 255, 255, 0.92);
   color: #2a1c43;
@@ -8618,9 +8608,9 @@ svg {
   background: #4b00bd;
   color: #fff;
 }
-.site.light-theme.home-page .homepage-special .card .content {
-  background: #fff;
-  border-top-color: #e9e1fb;
+.site.light-theme.home-page .deal-rank {
+  background: #f5c400;
+  color: #171326;
 }
 .site.light-theme.home-page .recent-card {
   background: #fff;
