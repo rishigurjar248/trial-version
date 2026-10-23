@@ -165,17 +165,53 @@ const mrp = (p) => {
 };
 const discount = (p) =>
   Math.max(0, Math.round((1 - salePrice(p) / mrp(p)) * 100));
+const getItemPayment = ({ p, qty }) => {
+  const price = Math.max(0, Number(p.price) || 0);
+  const quantity = Math.max(0, Number(qty) || 0);
+  const payNowPerItem =
+    p.paymentType === "partial"
+      ? Math.min(Math.max(0, Number(p.partialPaymentAmount) || 0), price)
+      : price;
+  return {
+    payNow: payNowPerItem * quantity,
+    dueOnDelivery: (price - payNowPerItem) * quantity,
+    payNowPerItem,
+    duePerItem: price - payNowPerItem,
+  };
+};
+const getPaymentBreakdown = (items, orderTotal) => {
+  const total = Math.max(0, Number(orderTotal) || 0);
+  const configuredPayNow = items.reduce(
+    (sum, item) => sum + getItemPayment(item).payNow,
+    0,
+  );
+  const payNow = Math.min(configuredPayNow, total);
+  return { payNow, dueOnDelivery: total - payNow };
+};
 function waUrl(items, customer = {}, promo = {}) {
   const lines = items
-    .map(({ p, qty }) => `${p.name} | ${p.brand} | ${money(p.price)} × ${qty}`)
+    .map((item) => {
+      const { p, qty } = item;
+      const payment = getItemPayment(item);
+      const terms =
+        p.paymentType === "partial"
+          ? `Partial: ${money(payment.payNowPerItem)} now + ${money(payment.duePerItem)} on delivery per item`
+          : `Full payment: ${money(payment.payNowPerItem)} now per item`;
+      return `${p.name} | ${p.brand} | ${money(p.price)} × ${qty} | ${terms}`;
+    })
     .join("\n");
   const subtotal = items.reduce((s, x) => s + x.p.price * x.qty, 0);
   const discountAmount = promo.discount || 0;
   const total = Math.max(0, subtotal - discountAmount);
+  const payment = getPaymentBreakdown(items, total);
   const couponLine = promo.code
     ? `\nCoupon: ${promo.code} (${money(discountAmount)} OFF)`
     : "";
-  const m = `Hi DealKart 👋\n\nI want to place an order:\n${lines}${couponLine}\n\nSubtotal: ${money(subtotal)}\nDiscount: ${money(discountAmount)}\nTotal: ${money(total)}\n\nCustomer details:\nName: ${customer.name || ""}\nPhone: ${customer.phone || ""}\nFull delivery address: ${customer.address || ""}\nPincode: ${customer.pincode || ""}`;
+  const couponNote =
+    discountAmount > 0
+      ? "\nCoupon savings are applied to the delivery balance first."
+      : "";
+  const m = `Hi DealKart 👋\n\nI want to place an order:\n${lines}${couponLine}\n\nSubtotal: ${money(subtotal)}\nDiscount: ${money(discountAmount)}\nTotal: ${money(total)}\nPay now: ${money(payment.payNow)}\nDue on delivery: ${money(payment.dueOnDelivery)}${couponNote}\n\nCustomer details:\nName: ${customer.name || ""}\nPhone: ${customer.phone || ""}\nFull delivery address: ${customer.address || ""}\nPincode: ${customer.pincode || ""}`;
   return `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(m)}`;
 }
 function Logo() {
@@ -1026,6 +1062,7 @@ function Cart({ open, onClose, items, onChange, onRemove, onCheckout }) {
         )
       : 0;
   const total = Math.max(0, discountedSubtotal - couponDiscount);
+  const paymentTotals = getPaymentBreakdown(items, total);
   const totalSaved = productDiscount + couponDiscount;
   const totalDiscountPercent =
     mrpTotal > 0 ? Math.round((totalSaved / mrpTotal) * 100) : 0;
@@ -1152,6 +1189,13 @@ function Cart({ open, onClose, items, onChange, onRemove, onCheckout }) {
                           <del>{money(mrp(x.p))}</del>
                           <strong>{money(x.p.price)}</strong>
                         </div>
+                        {x.p.paymentType === "partial" && (
+                          <small className="ci-payment">
+                            {money(getItemPayment(x).payNowPerItem)} now ·{" "}
+                            {money(getItemPayment(x).duePerItem)} on delivery
+                            per item
+                          </small>
+                        )}
                         <div className="qty">
                           <button
                             onClick={() => onChange(x.p, -1)}
@@ -1304,6 +1348,16 @@ function Cart({ open, onClose, items, onChange, onRemove, onCheckout }) {
                     {totalDiscountPercent > 0 && (
                       <em>{totalDiscountPercent}% OFF</em>
                     )}
+                  </div>
+                </div>
+                <div className="cart-payment-breakdown">
+                  <div>
+                    <span>Pay now</span>
+                    <b>{money(paymentTotals.payNow)}</b>
+                  </div>
+                  <div>
+                    <span>Due on delivery</span>
+                    <b>{money(paymentTotals.dueOnDelivery)}</b>
                   </div>
                 </div>
               </div>
@@ -1473,6 +1527,7 @@ function Checkout({
   if (!open) return null;
   const subtotal = items.reduce((s, x) => s + x.p.price * x.qty, 0);
   const orderTotal = Math.max(0, subtotal - (couponInfo.discount || 0));
+  const paymentTotals = getPaymentBreakdown(items, orderTotal);
   const ok =
     f.name.trim() &&
     /^\d{10}$/.test(f.phone.trim()) &&
@@ -1543,6 +1598,16 @@ function Checkout({
           </span>
           <b>{money(orderTotal)}</b>
         </div>
+        <div className="checkout-payment-breakdown">
+          <div>
+            <span>Pay now</span>
+            <b>{money(paymentTotals.payNow)}</b>
+          </div>
+          <div>
+            <span>Due on delivery</span>
+            <b>{money(paymentTotals.dueOnDelivery)}</b>
+          </div>
+        </div>
         <a
           className={"checkout-btn " + (!ok ? "disabled" : "")}
           href={ok ? waUrl(items, f, couponInfo) : undefined}
@@ -1555,8 +1620,8 @@ function Checkout({
           <MessageCircle size={18} /> Continue to WhatsApp
         </a>
         <div className="checkout-note">
-          <ShieldCheck size={14} /> Your details are only used to prepare your
-          WhatsApp order message.
+          <ShieldCheck size={14} /> Payment is coordinated on WhatsApp; this
+          page does not collect payment online.
         </div>
       </div>
     </div>

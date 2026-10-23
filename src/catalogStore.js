@@ -83,6 +83,12 @@ export const normalize = (p = {}, index = 0) => {
     brand: String(p.brand ?? "DealKart"),
     category: String(p.category ?? "All Deals"),
     price,
+    paymentType:
+      (p.paymentType ?? p.payment_type) === "partial" ? "partial" : "full",
+    partialPaymentAmount: asNumber(
+      p.partialPaymentAmount ?? p.partial_payment_amount,
+      0,
+    ),
     mrp,
     oldPrice: asNumber(p.oldPrice ?? p.old_price ?? p.mrp, mrp),
     discount: asNumber(p.discount, 0),

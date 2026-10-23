@@ -1879,6 +1879,30 @@ footer {
   font-family: "Space Grotesk", sans-serif;
   font-size: 19px;
 }
+.checkout-payment-breakdown,
+.cart-payment-breakdown {
+  display: grid;
+  gap: 6px;
+  padding: 10px 12px;
+  border: 1px solid rgba(127, 127, 127, 0.18);
+  border-radius: 9px;
+  background: rgba(127, 127, 127, 0.06);
+}
+.checkout-payment-breakdown > div,
+.cart-payment-breakdown > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.checkout-payment-breakdown b,
+.cart-payment-breakdown b {
+  color: var(--text);
+}
+.checkout-payment-breakdown + .checkout-btn {
+  margin-top: 14px;
+}
 .checkout-btn {
   display: flex;
   align-items: center;
@@ -3993,6 +4017,11 @@ svg {
   gap: 7px;
   margin-top: 3px;
 }
+.ci-payment {
+  display: block;
+  color: #6f6a61 !important;
+  line-height: 1.35;
+}
 .ci-price del {
   color: #bbb;
   font-size: 11px;
@@ -5506,7 +5535,8 @@ svg {
   color: #625b4e;
 }
 .admin-form-grid input,
-.admin-form-grid textarea {
+.admin-form-grid textarea,
+.admin-form-grid select {
   width: 100%;
   box-sizing: border-box;
   border: 1px solid #d9d2c3;
@@ -5522,9 +5552,16 @@ svg {
   resize: vertical;
 }
 .admin-form-grid input:focus,
-.admin-form-grid textarea:focus {
+.admin-form-grid textarea:focus,
+.admin-form-grid select:focus {
   outline: 2px solid #d8aa32;
   border-color: transparent;
+}
+.admin-form-grid label small {
+  color: #777266;
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 1.4;
 }
 .admin-wide {
   grid-column: 1/-1;

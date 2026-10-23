@@ -33,6 +33,8 @@ const mapRow = (r = {}, imageRows = []) => {
     brand: r.brand ?? "",
     category: r.category ?? "All Deals",
     price: Number(r.price ?? 0),
+    paymentType: r.payment_type === "partial" ? "partial" : "full",
+    partialPaymentAmount: Number(r.partial_payment_amount ?? 0),
     mrp: Number(r.mrp ?? r.old_price ?? 0),
     oldPrice: Number(r.old_price ?? r.mrp ?? 0),
     discount: Number(r.discount ?? 0),
@@ -77,6 +79,11 @@ const mapProduct = (p = {}) => {
     brand: String(p.brand ?? ""),
     category: String(p.category ?? "All Deals"),
     price: Number(p.price ?? 0),
+    payment_type: p.paymentType === "partial" ? "partial" : "full",
+    partial_payment_amount:
+      p.paymentType === "partial"
+        ? Math.max(0, Number(p.partialPaymentAmount) || 0)
+        : 0,
     mrp: Number(p.mrp ?? p.oldPrice ?? p.old_price ?? 0),
     old_price: Number(p.oldPrice ?? p.old_price ?? p.mrp ?? 0),
     discount: Number(p.discount ?? 0),
@@ -110,7 +117,7 @@ export default async function handler(req, res) {
     const { data, error } = await db
       .from("products")
       .select(
-        "id,page,name,brand,category,price,mrp,old_price,discount,rating,reviews,review_count,image,gallery_images,images,key_points,description,is_top10,top10_rank,storefront_rank,is_active,return_eligible,created_at",
+        "id,page,name,brand,category,price,payment_type,partial_payment_amount,mrp,old_price,discount,rating,reviews,review_count,image,gallery_images,images,key_points,description,is_top10,top10_rank,storefront_rank,is_active,return_eligible,created_at",
       )
       .eq("is_active", true)
       .order("top10_rank", { ascending: true, nullsFirst: false })
@@ -258,12 +265,10 @@ export default async function handler(req, res) {
     }
   }
 
-  return res
-    .status(200)
-    .json({
-      ok: true,
-      changedCount: rows.length,
-      deletedCount: deletedIds.length,
-      imageCount,
-    });
+  return res.status(200).json({
+    ok: true,
+    changedCount: rows.length,
+    deletedCount: deletedIds.length,
+    imageCount,
+  });
 }

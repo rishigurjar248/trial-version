@@ -43,6 +43,8 @@ const blank = () => ({
   brand: "",
   category: "All Deals",
   price: "",
+  paymentType: "full",
+  partialPaymentAmount: "",
   mrp: "",
   discount: "",
   rating: "4.3",
@@ -313,6 +315,8 @@ function snapshotProduct(p = {}) {
     brand: String(p.brand ?? ""),
     category: String(p.category ?? "All Deals"),
     price: Number(p.price ?? 0),
+    paymentType: p.paymentType === "partial" ? "partial" : "full",
+    partialPaymentAmount: Number(p.partialPaymentAmount ?? 0),
     mrp: Number(p.mrp ?? 0),
     oldPrice: Number(p.oldPrice ?? 0),
     discount: Number(p.discount ?? 0),
@@ -521,6 +525,17 @@ export default function AdminPage() {
       setAddError("Enter a valid selling price and MRP.");
       return;
     }
+    if (
+      newProduct.paymentType === "partial" &&
+      (!Number.isFinite(Number(newProduct.partialPaymentAmount)) ||
+        Number(newProduct.partialPaymentAmount) <= 0 ||
+        Number(newProduct.partialPaymentAmount) >= Number(newProduct.price))
+    ) {
+      setAddError(
+        "Pay now must be greater than ₹0 and less than the selling price.",
+      );
+      return;
+    }
     setAddingProduct(true);
     setAddError("");
     try {
@@ -532,6 +547,11 @@ export default function AdminPage() {
         id: Number(newProduct.id),
         page: Number(newProduct.id),
         price: Number(newProduct.price),
+        paymentType: newProduct.paymentType === "partial" ? "partial" : "full",
+        partialPaymentAmount:
+          newProduct.paymentType === "partial"
+            ? Number(newProduct.partialPaymentAmount)
+            : 0,
         mrp: Number(newProduct.mrp),
         oldPrice: Number(newProduct.mrp),
         discount: Math.max(
@@ -601,6 +621,19 @@ export default function AdminPage() {
   };
 
   const save = async () => {
+    const invalidPaymentProduct = items.find((p) => {
+      if (p.paymentType !== "partial") return false;
+      const amount = Number(p.partialPaymentAmount);
+      return (
+        !Number.isFinite(amount) || amount <= 0 || amount >= Number(p.price)
+      );
+    });
+    if (invalidPaymentProduct) {
+      alert(
+        `Set a pay-now amount greater than ₹0 and less than the selling price for ${invalidPaymentProduct.name || "each partial-payment product"}.`,
+      );
+      return;
+    }
     setSaving(true);
     try {
       const cleaned = items.map((p, i) => {
@@ -612,6 +645,11 @@ export default function AdminPage() {
           id: Number(p.id) || i + 1,
           page: Number(p.page) || Number(p.id) || i + 1,
           price: Number(p.price) || 0,
+          paymentType: p.paymentType === "partial" ? "partial" : "full",
+          partialPaymentAmount:
+            p.paymentType === "partial"
+              ? Number(p.partialPaymentAmount) || 0
+              : 0,
           mrp: Number(p.mrp) || Number(p.oldPrice) || Number(p.price) || 0,
           oldPrice: Number(p.mrp) || Number(p.oldPrice) || Number(p.price) || 0,
           discount: Number(p.discount) || 0,
@@ -677,6 +715,8 @@ export default function AdminPage() {
       "brand",
       "category",
       "price",
+      "paymentType",
+      "partialPaymentAmount",
       "mrp",
       "discount",
       "rating",
@@ -1283,6 +1323,50 @@ export default function AdminPage() {
                           )
                         }
                       >
+                        <label>
+                          Payment type
+                          <select
+                            value={newProduct.paymentType || "full"}
+                            onChange={(e) =>
+                              updateDraft(
+                                newProduct.id,
+                                "paymentType",
+                                e.target.value,
+                              )
+                            }
+                          >
+                            <option value="full">Full payment</option>
+                            <option value="partial">Partial payment</option>
+                          </select>
+                        </label>
+                        {newProduct.paymentType === "partial" && (
+                          <label>
+                            Pay now (₹) *
+                            <input
+                              type="number"
+                              min="1"
+                              max={Math.max(0, Number(newProduct.price) - 1)}
+                              step="1"
+                              value={newProduct.partialPaymentAmount}
+                              onChange={(e) =>
+                                updateDraft(
+                                  newProduct.id,
+                                  "partialPaymentAmount",
+                                  e.target.value,
+                                )
+                              }
+                              required
+                            />
+                            <small>
+                              The remaining amount is due on delivery. Total
+                              price stays{" "}
+                              {newProduct.price
+                                ? `₹${newProduct.price}`
+                                : "unchanged"}
+                              .
+                            </small>
+                          </label>
+                        )}
                         {newProduct.returnEligible !== false
                           ? "✓ 72-hour return"
                           : "No Return"}
@@ -1414,6 +1498,34 @@ export default function AdminPage() {
                         onChange={(e) => update(p.id, "price", e.target.value)}
                       />
                     </label>
+                    <label>
+                      Payment type
+                      <select
+                        value={p.paymentType || "full"}
+                        onChange={(e) =>
+                          update(p.id, "paymentType", e.target.value)
+                        }
+                      >
+                        <option value="full">Full payment</option>
+                        <option value="partial">Partial payment</option>
+                      </select>
+                    </label>
+                    {p.paymentType === "partial" && (
+                      <label>
+                        Pay now (₹) *
+                        <input
+                          type="number"
+                          min="1"
+                          max={Math.max(0, Number(p.price) - 1)}
+                          step="1"
+                          value={p.partialPaymentAmount ?? ""}
+                          onChange={(e) =>
+                            update(p.id, "partialPaymentAmount", e.target.value)
+                          }
+                        />
+                        <small>Remaining amount is due on delivery.</small>
+                      </label>
+                    )}
                     <label>
                       Rating
                       <input
