@@ -1879,8 +1879,7 @@ footer {
   font-family: "Space Grotesk", sans-serif;
   font-size: 19px;
 }
-.checkout-payment-breakdown,
-.cart-payment-breakdown {
+.checkout-payment-breakdown {
   display: grid;
   gap: 6px;
   padding: 10px 12px;
@@ -1888,20 +1887,66 @@ footer {
   border-radius: 9px;
   background: rgba(127, 127, 127, 0.06);
 }
-.checkout-payment-breakdown > div,
-.cart-payment-breakdown > div {
+.checkout-payment-breakdown > div {
   display: flex;
   justify-content: space-between;
   gap: 12px;
   color: var(--muted);
   font-size: 12px;
 }
-.checkout-payment-breakdown b,
-.cart-payment-breakdown b {
+.checkout-payment-breakdown b {
   color: var(--text);
 }
-.checkout-payment-breakdown + .checkout-btn {
-  margin-top: 14px;
+.payment-options {
+  display: grid;
+  gap: 8px;
+  margin: 16px 0 12px;
+  padding: 0;
+  border: 0;
+}
+.payment-options legend {
+  margin-bottom: 8px;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 800;
+}
+.payment-option {
+  display: grid;
+  grid-template-columns: 16px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 12px;
+  border: 1px solid rgba(127, 127, 127, 0.22);
+  border-radius: 9px;
+  color: var(--text);
+  cursor: pointer;
+}
+.payment-option.selected {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 7%, transparent);
+}
+.payment-option input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--accent);
+}
+.payment-option > span {
+  display: grid;
+  gap: 3px;
+}
+.payment-option strong,
+.payment-option > b {
+  font-size: 12px;
+}
+.payment-option small {
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.35;
+}
+.payment-option.unavailable {
+  opacity: 0.58;
+  cursor: not-allowed;
 }
 .checkout-btn {
   display: flex;
@@ -4016,11 +4061,6 @@ svg {
   align-items: baseline;
   gap: 7px;
   margin-top: 3px;
-}
-.ci-payment {
-  display: block;
-  color: #6f6a61 !important;
-  line-height: 1.35;
 }
 .ci-price del {
   color: #bbb;

@@ -179,37 +179,38 @@ const getItemPayment = ({ p, qty }) => {
     duePerItem: price - payNowPerItem,
   };
 };
-const getPaymentBreakdown = (items, orderTotal) => {
+const getPaymentBreakdown = (items, orderTotal, paymentMode = "full") => {
   const total = Math.max(0, Number(orderTotal) || 0);
-  const configuredPayNow = items.reduce(
-    (sum, item) => sum + getItemPayment(item).payNow,
-    0,
-  );
+  const configuredPayNow =
+    paymentMode === "partial"
+      ? items.reduce((sum, item) => sum + getItemPayment(item).payNow, 0)
+      : total;
   const payNow = Math.min(configuredPayNow, total);
   return { payNow, dueOnDelivery: total - payNow };
 };
-function waUrl(items, customer = {}, promo = {}) {
+function waUrl(items, customer = {}, promo = {}, paymentMode = "full") {
   const lines = items
     .map((item) => {
       const { p, qty } = item;
       const payment = getItemPayment(item);
+      const itemPrice = Math.max(0, Number(p.price) || 0);
       const terms =
-        p.paymentType === "partial"
+        paymentMode === "partial"
           ? `Partial: ${money(payment.payNowPerItem)} now + ${money(payment.duePerItem)} on delivery per item`
-          : `Full payment: ${money(payment.payNowPerItem)} now per item`;
+          : `Full payment: ${money(itemPrice)} now per item`;
       return `${p.name} | ${p.brand} | ${money(p.price)} × ${qty} | ${terms}`;
     })
     .join("\n");
   const subtotal = items.reduce((s, x) => s + x.p.price * x.qty, 0);
   const discountAmount = promo.discount || 0;
   const total = Math.max(0, subtotal - discountAmount);
-  const payment = getPaymentBreakdown(items, total);
+  const payment = getPaymentBreakdown(items, total, paymentMode);
   const couponLine = promo.code
     ? `\nCoupon: ${promo.code} (${money(discountAmount)} OFF)`
     : "";
   const couponNote =
-    discountAmount > 0
-      ? "\nCoupon savings are applied to the delivery balance first."
+    discountAmount > 0 && paymentMode === "partial"
+      ? "\nCoupon savings reduce the delivery balance first."
       : "";
   const m = `Hi DealKart 👋\n\nI want to place an order:\n${lines}${couponLine}\n\nSubtotal: ${money(subtotal)}\nDiscount: ${money(discountAmount)}\nTotal: ${money(total)}\nPay now: ${money(payment.payNow)}\nDue on delivery: ${money(payment.dueOnDelivery)}${couponNote}\n\nCustomer details:\nName: ${customer.name || ""}\nPhone: ${customer.phone || ""}\nFull delivery address: ${customer.address || ""}\nPincode: ${customer.pincode || ""}`;
   return `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(m)}`;
@@ -1062,7 +1063,6 @@ function Cart({ open, onClose, items, onChange, onRemove, onCheckout }) {
         )
       : 0;
   const total = Math.max(0, discountedSubtotal - couponDiscount);
-  const paymentTotals = getPaymentBreakdown(items, total);
   const totalSaved = productDiscount + couponDiscount;
   const totalDiscountPercent =
     mrpTotal > 0 ? Math.round((totalSaved / mrpTotal) * 100) : 0;
@@ -1189,13 +1189,6 @@ function Cart({ open, onClose, items, onChange, onRemove, onCheckout }) {
                           <del>{money(mrp(x.p))}</del>
                           <strong>{money(x.p.price)}</strong>
                         </div>
-                        {x.p.paymentType === "partial" && (
-                          <small className="ci-payment">
-                            {money(getItemPayment(x).payNowPerItem)} now ·{" "}
-                            {money(getItemPayment(x).duePerItem)} on delivery
-                            per item
-                          </small>
-                        )}
                         <div className="qty">
                           <button
                             onClick={() => onChange(x.p, -1)}
@@ -1350,16 +1343,6 @@ function Cart({ open, onClose, items, onChange, onRemove, onCheckout }) {
                     )}
                   </div>
                 </div>
-                <div className="cart-payment-breakdown">
-                  <div>
-                    <span>Pay now</span>
-                    <b>{money(paymentTotals.payNow)}</b>
-                  </div>
-                  <div>
-                    <span>Due on delivery</span>
-                    <b>{money(paymentTotals.dueOnDelivery)}</b>
-                  </div>
-                </div>
               </div>
               {totalSaved > 0 && (
                 <div className="cart-saved">
@@ -1509,8 +1492,10 @@ function Checkout({
   couponInfo = { code: "", discount: 0 },
 }) {
   const [f, setF] = useState({ name: "", phone: "", address: "", pincode: "" });
+  const [paymentMode, setPaymentMode] = useState("full");
   useEffect(() => {
     if (open) {
+      setPaymentMode("full");
       try {
         const saved = JSON.parse(
           localStorage.getItem("dealkart-checkout") || "null",
@@ -1527,7 +1512,22 @@ function Checkout({
   if (!open) return null;
   const subtotal = items.reduce((s, x) => s + x.p.price * x.qty, 0);
   const orderTotal = Math.max(0, subtotal - (couponInfo.discount || 0));
-  const paymentTotals = getPaymentBreakdown(items, orderTotal);
+  const canPayPartially =
+    items.length > 0 &&
+    items.every(({ p }) => {
+      const amount = Number(p.partialPaymentAmount);
+      return (
+        p.paymentType === "partial" &&
+        Number.isFinite(amount) &&
+        amount > 0 &&
+        amount < Number(p.price)
+      );
+    });
+  const fullPaymentTotals = getPaymentBreakdown(items, orderTotal, "full");
+  const partialPaymentTotals = canPayPartially
+    ? getPaymentBreakdown(items, orderTotal, "partial")
+    : null;
+  const paymentTotals = getPaymentBreakdown(items, orderTotal, paymentMode);
   const ok =
     f.name.trim() &&
     /^\d{10}$/.test(f.phone.trim()) &&
@@ -1598,6 +1598,56 @@ function Checkout({
           </span>
           <b>{money(orderTotal)}</b>
         </div>
+        <fieldset className="payment-options">
+          <legend>Choose payment option</legend>
+          <label
+            className={
+              paymentMode === "full"
+                ? "payment-option selected"
+                : "payment-option"
+            }
+          >
+            <input
+              type="radio"
+              name="payment-mode"
+              value="full"
+              checked={paymentMode === "full"}
+              onChange={() => setPaymentMode("full")}
+            />
+            <span>
+              <strong>Full payment now</strong>
+              <small>Pay the complete order total now.</small>
+            </span>
+            <b>{money(fullPaymentTotals.payNow)}</b>
+          </label>
+          <label
+            className={[
+              "payment-option",
+              paymentMode === "partial" ? "selected" : "",
+              !canPayPartially ? "unavailable" : "",
+            ]
+              .filter(Boolean)
+              .join(" ")}
+          >
+            <input
+              type="radio"
+              name="payment-mode"
+              value="partial"
+              checked={paymentMode === "partial"}
+              disabled={!canPayPartially}
+              onChange={() => setPaymentMode("partial")}
+            />
+            <span>
+              <strong>Partial payment, rest on delivery</strong>
+              <small>
+                {canPayPartially
+                  ? `${money(partialPaymentTotals.payNow)} now · ${money(partialPaymentTotals.dueOnDelivery)} on delivery`
+                  : "Available when every item has partial-payment terms set in admin."}
+              </small>
+            </span>
+            {canPayPartially && <b>{money(partialPaymentTotals.payNow)}</b>}
+          </label>
+        </fieldset>
         <div className="checkout-payment-breakdown">
           <div>
             <span>Pay now</span>
@@ -1610,7 +1660,7 @@ function Checkout({
         </div>
         <a
           className={"checkout-btn " + (!ok ? "disabled" : "")}
-          href={ok ? waUrl(items, f, couponInfo) : undefined}
+          href={ok ? waUrl(items, f, couponInfo, paymentMode) : undefined}
           target="_blank"
           rel="noreferrer"
           onClick={(e) => {
