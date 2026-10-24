@@ -8528,3 +8528,36 @@ svg {
     padding: 0 10px;
   }
 }
+
+/* YouPI hosted UPI checkout add-on; existing storefront layout is unchanged. */
+.checkout-payment-button {
+  width: 100%;
+  border: 0;
+  font-family: inherit;
+  cursor: pointer;
+}
+.checkout-payment-button:disabled {
+  cursor: wait;
+}
+.checkout-whatsapp {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  margin-top: 10px;
+  padding: 10px;
+  border: 1px solid var(--border, #555);
+  border-radius: 9px;
+  font-size: 10px;
+  font-weight: 750;
+}
+.checkout-payment-error {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border: 1px solid #d97757;
+  border-radius: 8px;
+  color: #b42318;
+  background: rgba(217, 119, 87, 0.09);
+  font-size: 11px;
+  line-height: 1.45;
+}

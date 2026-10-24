@@ -1493,8 +1493,12 @@ function Checkout({
 }) {
   const [f, setF] = useState({ name: "", phone: "", address: "", pincode: "" });
   const [paymentMode, setPaymentMode] = useState("full");
+  const [paymentBusy, setPaymentBusy] = useState(false);
+  const [paymentError, setPaymentError] = useState("");
   useEffect(() => {
     if (open) {
+      setPaymentError("");
+      setPaymentBusy(false);
       setPaymentMode("full");
       try {
         const saved = JSON.parse(
@@ -1540,13 +1544,12 @@ function Checkout({
           <X />
         </button>
         <div className="checkout-top">
-          <MessageCircle />
+          <ShieldCheck />
           <div>
             <small>DEALKART CHECKOUT</small>
             <h2>Complete your order</h2>
             <p>
-              Enter your details, then we'll open WhatsApp with everything
-              filled in.
+              Enter your delivery details, then pay securely through the hosted UPI checkout.
             </p>
           </div>
         </div>
@@ -1658,20 +1661,54 @@ function Checkout({
             <b>{money(paymentTotals.dueOnDelivery)}</b>
           </div>
         </div>
+        <button
+          type="button"
+          className={"checkout-btn checkout-payment-button " + (!ok || paymentBusy ? "disabled" : "")}
+          disabled={!ok || paymentBusy}
+          onClick={async () => {
+            if (!ok || paymentBusy) return;
+            setPaymentBusy(true);
+            setPaymentError("");
+            try {
+              const response = await fetch("/api/youpi-create-payment", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  customer: {
+                    name: f.name.trim(),
+                    phone: f.phone.trim(),
+                    address: f.address.trim(),
+                    pincode: f.pincode.trim(),
+                  },
+                  items: items.map(({ p, qty }) => ({ productId: p.id, quantity: qty })),
+                  couponCode: couponInfo.code || "",
+                  paymentMode,
+                }),
+              });
+              const result = await response.json().catch(() => ({}));
+              if (!response.ok) throw new Error(result.error || "Unable to start payment. Please try again.");
+              if (!result.checkoutUrl) throw new Error("The payment gateway did not return a checkout URL.");
+              window.location.assign(result.checkoutUrl);
+            } catch (error) {
+              setPaymentError(error?.message || "Unable to start payment. Please try again.");
+              setPaymentBusy(false);
+            }
+          }}
+        >
+          <ShieldCheck size={18} /> {paymentBusy ? "Connecting to payment gateway…" : `Pay ${money(paymentTotals.payNow)} with UPI`}
+        </button>
+        {paymentError && <div className="checkout-payment-error" role="alert">{paymentError}</div>}
         <a
-          className={"checkout-btn " + (!ok ? "disabled" : "")}
+          className="checkout-whatsapp"
           href={ok ? waUrl(items, f, couponInfo, paymentMode) : undefined}
           target="_blank"
           rel="noreferrer"
-          onClick={(e) => {
-            if (!ok) e.preventDefault();
-          }}
+          onClick={(e) => { if (!ok) e.preventDefault(); }}
         >
-          <MessageCircle size={18} /> Continue to WhatsApp
+          <MessageCircle size={16} /> Prefer to order through WhatsApp?
         </a>
         <div className="checkout-note">
-          <ShieldCheck size={14} /> Payment is coordinated on WhatsApp; this
-          page does not collect payment online.
+          <ShieldCheck size={14} /> Your order remains pending until DealKart receives and verifies a payment notification.
         </div>
       </div>
     </div>
@@ -1901,6 +1938,33 @@ function App() {
   const [hidden, setHidden] = useState(false);
   const [toast, setToast] = useState("");
   const [couponInfo, setCouponInfo] = useState({ code: "", discount: 0 });
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("payment_return") !== "1") return;
+    const orderId = params.get("order_id");
+    if (!orderId) {
+      setToast("Returned from checkout. Your payment is still being verified.");
+      return;
+    }
+    let cancelled = false;
+    fetch(`/api/youpi-payment-status?orderId=${encodeURIComponent(orderId)}`)
+      .then(async (response) => {
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data.error || "Status unavailable");
+        if (cancelled) return;
+        if (data.paymentStatus === "paid") setToast(`Payment verified for order ${orderId.slice(0, 8)}. Thank you!`);
+        else if (["failed", "expired", "cancelled"].includes(data.paymentStatus)) setToast("Payment was not confirmed. You can retry checkout or contact DealKart support.");
+        else setToast("Payment status is pending verification. Please don't pay again until you check your order status.");
+      })
+      .catch(() => { if (!cancelled) setToast("We are checking your payment. Please contact DealKart if the status does not update."); })
+      .finally(() => {
+        const cleanUrl = new URL(window.location.href);
+        cleanUrl.searchParams.delete("payment_return");
+        cleanUrl.searchParams.delete("order_id");
+        window.history.replaceState({}, "", cleanUrl.pathname + cleanUrl.search + cleanUrl.hash);
+      });
+    return () => { cancelled = true; };
+  }, []);
   useEffect(() => {
     const onHash = () => {
       if (window.location.hash === "#admin") setPage("admin");
