@@ -402,6 +402,37 @@ function Hero({ slide, setSlide, onExplore }) {
     </section>
   );
 }
+
+function StoryChapters({ onShop }) {
+  const chapters = [
+    { n: "01", title: "Less searching.\\nMore saving.", text: "Discover everyday essentials across categories, all in one place.", tone: "story-cream", tag: "THE DEALKART IDEA", visual: "stack" },
+    { n: "02", title: "Your shortlist,\\nwithout the noise.", text: "Explore curated picks, compare the details, and choose what fits you.", tone: "story-yellow", tag: "CURATED DISCOVERY", visual: "orbit" },
+    { n: "03", title: "Find it. Add it.\\nMake it yours.", text: "Browse the live catalog and add products to your cart when you're ready.", tone: "story-dark", tag: "SHOP YOUR WAY", visual: "basket" },
+  ];
+  return (
+    <div className="story-chapters" aria-label="The DealKart shopping story">
+      <div className="story-progress"><span /></div>
+      {chapters.map((c) => (
+        <section className={`story-chapter ${c.tone}`} key={c.n}>
+          <div className="story-copy reveal">
+            <span className="story-tag"><i>{c.n}</i>{c.tag}</span>
+            <h2>{c.title.split("\\n").map((line, i) => <span key={i}>{line}</span>)}</h2>
+            <p>{c.text}</p>
+            <button className="story-cta" onClick={onShop}>Explore deals <ArrowRight size={16}/></button>
+          </div>
+          <div className={`story-art ${c.visual}`} aria-hidden="true">
+            {c.visual === "stack" ? <><div className="story-card card-one"><small>DEALKART PICKS</small><b>Good finds.<br/>Better prices.</b><span>DISCOVER MORE ↗</span></div><div className="story-card card-two"><span>DAILY ESSENTIALS</span><b>Worth<br/>a closer look.</b></div><div className="story-orb orb-a"/><div className="story-orb orb-b"/></> : null}
+            {c.visual === "orbit" ? <><div className="orbit-ring ring-one"/><div className="orbit-ring ring-two"/><div className="orbit-core"><span>DK</span><b>THE<br/>GOOD<br/>FIND</b></div><span className="orbit-label label-one">STYLE</span><span className="orbit-label label-two">TECH</span><span className="orbit-label label-three">DAILY</span></> : null}
+            {c.visual === "basket" ? <><div className="basket-glow"/><div className="basket-shape"><div/><div/><div/></div><div className="basket-item item-a"/><div className="basket-item item-b"/><div className="basket-item item-c"/><span className="basket-note">YOUR NEXT FIND ↗</span></> : null}
+          </div>
+          <div className="story-index">{c.n} <span>/ 03</span></div>
+        </section>
+      ))}
+      <div className="story-honesty">Product availability and prices are shown in the live catalog. Brand-origin and sourcing claims are not implied.</div>
+    </div>
+  );
+}
+
 function Trust() {
   return (
     <section className="trust reveal">
@@ -1493,12 +1524,8 @@ function Checkout({
 }) {
   const [f, setF] = useState({ name: "", phone: "", address: "", pincode: "" });
   const [paymentMode, setPaymentMode] = useState("full");
-  const [paymentBusy, setPaymentBusy] = useState(false);
-  const [paymentError, setPaymentError] = useState("");
   useEffect(() => {
     if (open) {
-      setPaymentError("");
-      setPaymentBusy(false);
       setPaymentMode("full");
       try {
         const saved = JSON.parse(
@@ -1544,12 +1571,13 @@ function Checkout({
           <X />
         </button>
         <div className="checkout-top">
-          <ShieldCheck />
+          <MessageCircle />
           <div>
             <small>DEALKART CHECKOUT</small>
             <h2>Complete your order</h2>
             <p>
-              Enter your delivery details, then pay securely through the hosted UPI checkout.
+              Enter your details, then we'll open WhatsApp with everything
+              filled in.
             </p>
           </div>
         </div>
@@ -1661,54 +1689,20 @@ function Checkout({
             <b>{money(paymentTotals.dueOnDelivery)}</b>
           </div>
         </div>
-        <button
-          type="button"
-          className={"checkout-btn checkout-payment-button " + (!ok || paymentBusy ? "disabled" : "")}
-          disabled={!ok || paymentBusy}
-          onClick={async () => {
-            if (!ok || paymentBusy) return;
-            setPaymentBusy(true);
-            setPaymentError("");
-            try {
-              const response = await fetch("/api/youpi-create-payment", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  customer: {
-                    name: f.name.trim(),
-                    phone: f.phone.trim(),
-                    address: f.address.trim(),
-                    pincode: f.pincode.trim(),
-                  },
-                  items: items.map(({ p, qty }) => ({ productId: p.id, quantity: qty })),
-                  couponCode: couponInfo.code || "",
-                  paymentMode,
-                }),
-              });
-              const result = await response.json().catch(() => ({}));
-              if (!response.ok) throw new Error(result.error || "Unable to start payment. Please try again.");
-              if (!result.checkoutUrl) throw new Error("The payment gateway did not return a checkout URL.");
-              window.location.assign(result.checkoutUrl);
-            } catch (error) {
-              setPaymentError(error?.message || "Unable to start payment. Please try again.");
-              setPaymentBusy(false);
-            }
-          }}
-        >
-          <ShieldCheck size={18} /> {paymentBusy ? "Connecting to payment gateway…" : `Pay ${money(paymentTotals.payNow)} with UPI`}
-        </button>
-        {paymentError && <div className="checkout-payment-error" role="alert">{paymentError}</div>}
         <a
-          className="checkout-whatsapp"
+          className={"checkout-btn " + (!ok ? "disabled" : "")}
           href={ok ? waUrl(items, f, couponInfo, paymentMode) : undefined}
           target="_blank"
           rel="noreferrer"
-          onClick={(e) => { if (!ok) e.preventDefault(); }}
+          onClick={(e) => {
+            if (!ok) e.preventDefault();
+          }}
         >
-          <MessageCircle size={16} /> Prefer to order through WhatsApp?
+          <MessageCircle size={18} /> Continue to WhatsApp
         </a>
         <div className="checkout-note">
-          <ShieldCheck size={14} /> Your order remains pending until DealKart receives and verifies a payment notification.
+          <ShieldCheck size={14} /> Payment is coordinated on WhatsApp; this
+          page does not collect payment online.
         </div>
       </div>
     </div>
@@ -1939,33 +1933,6 @@ function App() {
   const [toast, setToast] = useState("");
   const [couponInfo, setCouponInfo] = useState({ code: "", discount: 0 });
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("payment_return") !== "1") return;
-    const orderId = params.get("order_id");
-    if (!orderId) {
-      setToast("Returned from checkout. Your payment is still being verified.");
-      return;
-    }
-    let cancelled = false;
-    fetch(`/api/youpi-payment-status?orderId=${encodeURIComponent(orderId)}`)
-      .then(async (response) => {
-        const data = await response.json().catch(() => ({}));
-        if (!response.ok) throw new Error(data.error || "Status unavailable");
-        if (cancelled) return;
-        if (data.paymentStatus === "paid") setToast(`Payment verified for order ${orderId.slice(0, 8)}. Thank you!`);
-        else if (["failed", "expired", "cancelled"].includes(data.paymentStatus)) setToast("Payment was not confirmed. You can retry checkout or contact DealKart support.");
-        else setToast("Payment status is pending verification. Please don't pay again until you check your order status.");
-      })
-      .catch(() => { if (!cancelled) setToast("We are checking your payment. Please contact DealKart if the status does not update."); })
-      .finally(() => {
-        const cleanUrl = new URL(window.location.href);
-        cleanUrl.searchParams.delete("payment_return");
-        cleanUrl.searchParams.delete("order_id");
-        window.history.replaceState({}, "", cleanUrl.pathname + cleanUrl.search + cleanUrl.hash);
-      });
-    return () => { cancelled = true; };
-  }, []);
-  useEffect(() => {
     const onHash = () => {
       if (window.location.hash === "#admin") setPage("admin");
       else if (window.location.hash === "#todays-special") setPage("special");
@@ -2013,14 +1980,22 @@ function App() {
     );
   }, [recent]);
   useEffect(() => {
-    const reveal = () =>
+    const reveal = () => {
       document.querySelectorAll(".reveal").forEach((el) => {
         const r = el.getBoundingClientRect();
         if (r.top < window.innerHeight * 0.9) el.classList.add("revealed");
       });
+      const max = document.documentElement.scrollHeight - window.innerHeight;
+      const progress = max > 0 ? window.scrollY / max : 0;
+      document.documentElement.style.setProperty("--page-progress", `${progress * 100}%`);
+    };
     reveal();
     window.addEventListener("scroll", reveal, { passive: true });
-    return () => window.removeEventListener("scroll", reveal);
+    window.addEventListener("resize", reveal);
+    return () => {
+      window.removeEventListener("scroll", reveal);
+      window.removeEventListener("resize", reveal);
+    };
   }, [q, category, catalogStatus, catalogVersion]);
   useEffect(() => {
     let last = window.scrollY;
@@ -2213,6 +2188,7 @@ function App() {
       ) : (
         <main>
           <Hero slide={slide} setSlide={setSlide} onExplore={scrollProducts} />
+          <StoryChapters onShop={scrollProducts} />
           <Trust />
           <section className="section homepage-special reveal" id="top-deals">
             <div className="section-heading">
