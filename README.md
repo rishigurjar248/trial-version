@@ -131,11 +131,13 @@ SUPABASE_URL=https://YOUR_PROJECT.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=YOUR_SUPABASE_SERVICE_ROLE_KEY
 YOUPI_API_URL=https://pay.yourdomain.com
 YOUPI_MERCHANT_ID=YOUR_CONFIGURED_MERCHANT_UUID
+YOUPI_MERCHANT_KEY=YOUR_CONFIGURED_MERCHANT_API_KEY
 YOUPI_WEBHOOK_SECRET=YOUR_CONFIGURED_WEBHOOK_SECRET
-DEALKART_PUBLIC_URL=https://deal-kart.co.in
+DEALKART_PUBLIC_URL=https://trial-version.vercel.app
 ```
 
 Keep the Supabase service-role key, YouPI merchant secret, and webhook secret server-side. Do not prefix these variables with `VITE_`, do not put them in source files, and do not commit `.env` files.
+`YOUPI_MERCHANT_KEY` is required when using a non-default gateway merchant; it is optional for the gateway's default merchant.
 
 ### Database setup
 
@@ -147,7 +149,7 @@ Keep the Supabase service-role key, YouPI merchant secret, and webhook secret se
 
 1. Deploy the upstream YouPI-PG repository as a separate service on a persistent host that meets the current upstream README requirements. The upstream repository is experimental and explicitly not certified, audited, or production-ready.
 2. Configure a receiving account/UPI ID in the YouPI merchant admin. Your phone number is not automatically a UPI ID; if your bank/UPI app maps it to a UPI address, confirm the exact receiving UPI ID in the merchant setup. The DealKart checkout uses the gateway's dynamic checkout QR; a static QR image is not directly embedded in the DealKart storefront. A QR image can help identify the receiving UPI address, but it does not replace the gateway observer configuration.
-3. Configure the public HTTPS gateway URL and merchant ID. Configure the gateway webhook destination to `https://deal-kart.co.in/api/youpi-webhook` and use the exact same webhook secret on both sides.
+3. Configure the public HTTPS gateway URL and merchant ID. Configure the gateway webhook destination to `https://trial-version.vercel.app/api/youpi-webhook` (or your storefront's custom-domain equivalent) and use the exact same webhook secret on both sides.
 4. Confirm that the gateway's payment API is reachable at `YOUPI_API_URL/api/v1/payments` and that it returns a secure `checkoutUrl`.
 5. Add the variables above to Vercel and redeploy.
 

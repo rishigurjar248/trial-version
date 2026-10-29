@@ -136,7 +136,13 @@ export default async function handler(req, res) {
     try {
       const response = await fetch(`${baseUrl}/api/v1/payments`, {
         method: "POST",
-        headers: { "Content-Type": "application/json", "X-Merchant-Id": process.env.YOUPI_MERCHANT_ID },
+        headers: {
+          "Content-Type": "application/json",
+          "X-Merchant-Id": process.env.YOUPI_MERCHANT_ID,
+          ...(process.env.YOUPI_MERCHANT_KEY
+            ? { "X-Merchant-Key": process.env.YOUPI_MERCHANT_KEY }
+            : {}),
+        },
         body: JSON.stringify({
           orderId,
           amount: amountString(payNowAmount),
