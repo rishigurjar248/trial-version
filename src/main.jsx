@@ -63,6 +63,16 @@ const categories = [
   "Fragrance",
   "Personal Care",
 ];
+const categoryFromHash = () => {
+  const match = window.location.hash.match(/^#category\/(.+)$/);
+  if (!match) return null;
+  try {
+    const name = decodeURIComponent(match[1]);
+    return categories.includes(name) && name !== "All Deals" ? name : null;
+  } catch {
+    return null;
+  }
+};
 const initialProducts = getInitialCatalog();
 // The public storefront uses Supabase as its source of truth. Do not render
 // the bundled one-product fallback while the remote catalog is loading.
@@ -330,7 +340,14 @@ function Header({
             <Zap size={12} fill="currentColor" /> Deals
           </div>
           {categories.map((x) => (
-            <a key={x} href="#products">
+            <a
+              key={x}
+              href={
+                x === "All Deals"
+                  ? "#products"
+                  : `#category/${encodeURIComponent(x)}`
+              }
+            >
               {x}
             </a>
           ))}
@@ -553,6 +570,219 @@ function ProductCard({ p, onOpen, onAdd, onWish, wished, onSeen }) {
         </p>
       </div>
     </article>
+  );
+}
+function CategoryPage({
+  categoryName,
+  categories: categoryOptions,
+  products: categoryProducts,
+  onOpen,
+  onAdd,
+  onWish,
+  wished,
+  onSeen,
+}) {
+  const [selectedBrands, setSelectedBrands] = useState([]);
+  const [minimumPrice, setMinimumPrice] = useState("");
+  const [maximumPrice, setMaximumPrice] = useState("");
+  const [minimumRating, setMinimumRating] = useState("0");
+  const [sortOrder, setSortOrder] = useState("recommended");
+  const brands = [...new Set(categoryProducts.map((product) => product.brand))]
+    .filter(Boolean)
+    .sort((a, b) => a.localeCompare(b));
+  const visibleProducts = categoryProducts
+    .filter((product) => {
+      const price = salePrice(product);
+      return (
+        (!selectedBrands.length || selectedBrands.includes(product.brand)) &&
+        (!minimumPrice || price >= Number(minimumPrice)) &&
+        (!maximumPrice || price <= Number(maximumPrice)) &&
+        Number(product.rating || 0) >= Number(minimumRating)
+      );
+    })
+    .sort((a, b) => {
+      if (sortOrder === "price-low") return salePrice(a) - salePrice(b);
+      if (sortOrder === "price-high") return salePrice(b) - salePrice(a);
+      if (sortOrder === "rating") return Number(b.rating) - Number(a.rating);
+      return compareStorefrontOrder(a, b);
+    });
+  const toggleBrand = (brand) => {
+    setSelectedBrands((current) =>
+      current.includes(brand)
+        ? current.filter((item) => item !== brand)
+        : [...current, brand],
+    );
+  };
+  const clearFilters = () => {
+    setSelectedBrands([]);
+    setMinimumPrice("");
+    setMaximumPrice("");
+    setMinimumRating("0");
+    setSortOrder("recommended");
+  };
+
+  return (
+    <main className="category-page">
+      <section className="category-banner">
+        <div>
+          <span className="kicker">
+            <Sparkles size={11} /> DEALKART CATEGORY
+          </span>
+          <h1>{categoryName} deals</h1>
+          <p>
+            Discover trusted picks and shop the latest{" "}
+            {categoryName.toLowerCase()} offers.
+          </p>
+        </div>
+        <div className="category-banner-count">
+          <strong>{categoryProducts.length}</strong>
+          <span>products</span>
+        </div>
+      </section>
+      <div className="category-layout">
+        <aside className="category-filters" aria-label="Product filters">
+          <div className="category-filter-heading">
+            <h2>Filter by</h2>
+            <button type="button" onClick={clearFilters}>
+              Clear
+            </button>
+          </div>
+          <fieldset>
+            <legend>Category</legend>
+            {categoryOptions
+              .filter((item) => item !== "All Deals")
+              .map((item) => (
+                <a
+                  className={item === categoryName ? "selected" : ""}
+                  href={`#category/${encodeURIComponent(item)}`}
+                  key={item}
+                >
+                  {item}
+                </a>
+              ))}
+          </fieldset>
+          {brands.length > 0 && (
+            <fieldset>
+              <legend>Brand</legend>
+              <div className="category-brand-filters">
+                {brands.map((brand) => (
+                  <label key={brand}>
+                    <input
+                      type="checkbox"
+                      checked={selectedBrands.includes(brand)}
+                      onChange={() => toggleBrand(brand)}
+                    />
+                    <span>{brand}</span>
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+          )}
+          <fieldset>
+            <legend>Price range</legend>
+            <div className="category-price-fields">
+              <label>
+                <span>Min</span>
+                <input
+                  type="number"
+                  min="0"
+                  placeholder="₹0"
+                  value={minimumPrice}
+                  onChange={(event) => setMinimumPrice(event.target.value)}
+                />
+              </label>
+              <label>
+                <span>Max</span>
+                <input
+                  type="number"
+                  min="0"
+                  placeholder="No limit"
+                  value={maximumPrice}
+                  onChange={(event) => setMaximumPrice(event.target.value)}
+                />
+              </label>
+            </div>
+          </fieldset>
+          <fieldset>
+            <legend>Customer rating</legend>
+            <select
+              value={minimumRating}
+              onChange={(event) => setMinimumRating(event.target.value)}
+              aria-label="Minimum customer rating"
+            >
+              <option value="0">Any rating</option>
+              <option value="4">4 stars &amp; up</option>
+              <option value="3">3 stars &amp; up</option>
+            </select>
+          </fieldset>
+        </aside>
+        <section
+          className="category-results"
+          aria-label={`${categoryName} products`}
+        >
+          {brands.length > 0 && (
+            <div className="category-brand-strip">
+              <span>Shop by brand</span>
+              <div>
+                {brands.map((brand) => (
+                  <button
+                    type="button"
+                    className={selectedBrands.includes(brand) ? "active" : ""}
+                    key={brand}
+                    onClick={() => toggleBrand(brand)}
+                  >
+                    {brand}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          <div className="category-toolbar">
+            <p>
+              Showing <strong>{visibleProducts.length}</strong> of{" "}
+              {categoryProducts.length} products
+            </p>
+            <label>
+              Sort by
+              <select
+                value={sortOrder}
+                onChange={(event) => setSortOrder(event.target.value)}
+                aria-label="Sort products"
+              >
+                <option value="recommended">Recommended</option>
+                <option value="price-low">Price: low to high</option>
+                <option value="price-high">Price: high to low</option>
+                <option value="rating">Top rated</option>
+              </select>
+            </label>
+          </div>
+          {visibleProducts.length ? (
+            <div className="grid category-product-grid">
+              {visibleProducts.map((product) => (
+                <ProductCard
+                  key={product.id}
+                  p={product}
+                  onOpen={onOpen}
+                  onAdd={onAdd}
+                  onWish={onWish}
+                  wished={wished(product)}
+                  onSeen={onSeen}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="empty category-empty">
+              <Search />
+              <h3>No products match these filters</h3>
+              <p>Try changing the brand, price, or rating filters.</p>
+              <button type="button" onClick={clearFilters}>
+                Clear filters
+              </button>
+            </div>
+          )}
+        </section>
+      </div>
+    </main>
   );
 }
 function productHasReturn(p) {
@@ -1923,9 +2153,11 @@ function App() {
   const [page, setPage] = useState(() => {
     if (window.location.hash === "#admin") return "admin";
     if (window.location.hash === "#todays-special") return "special";
-    return "home";
+    return categoryFromHash() ? "category" : "home";
   });
-  const [category, setCategory] = useState("All Deals");
+  const [category, setCategory] = useState(
+    () => categoryFromHash() || "All Deals",
+  );
   const [selected, setSelected] = useState(null);
   const [cart, setCart] = useState([]);
   const [wish, setWish] = useState([]);
@@ -1967,9 +2199,25 @@ function App() {
   }, []);
   useEffect(() => {
     const onHash = () => {
-      if (window.location.hash === "#admin") setPage("admin");
+      const routeCategory = categoryFromHash();
+      if (routeCategory) {
+        setCategory(routeCategory);
+        setPage("category");
+      } else if (window.location.hash === "#admin") setPage("admin");
       else if (window.location.hash === "#todays-special") setPage("special");
-      else setPage("home");
+      else {
+        setCategory("All Deals");
+        setPage("home");
+        if (window.location.hash === "#products") {
+          requestAnimationFrame(() =>
+            requestAnimationFrame(() =>
+              document
+                .getElementById("products")
+                ?.scrollIntoView({ behavior: "smooth", block: "start" }),
+            ),
+          );
+        }
+      }
     };
     window.addEventListener("hashchange", onHash);
     return () => window.removeEventListener("hashchange", onHash);
@@ -2061,6 +2309,7 @@ function App() {
     const search = value.trim();
     setCategory("All Deals");
     setQ(search);
+    if (page === "category") window.location.hash = "products";
     requestAnimationFrame(() => {
       document
         .getElementById("products")
@@ -2209,6 +2458,18 @@ function App() {
           onBack={() => {
             window.location.hash = "top";
           }}
+        />
+      ) : page === "category" ? (
+        <CategoryPage
+          key={category}
+          categoryName={category}
+          categories={categories}
+          products={filtered}
+          onOpen={setSelected}
+          onAdd={add}
+          onWish={toggleWish}
+          wished={(product) => wish.some((item) => item.id === product.id)}
+          onSeen={seen}
         />
       ) : (
         <main>
